@@ -1,4 +1,3 @@
-
 from gym import Env
 from gym.spaces import Discrete, Box #Espacio discreto y espacio caja
 import numpy as np
@@ -17,27 +16,26 @@ from rl.memory import SequentialMemory
 import itertools
 import subprocess
 
-from sklearn.model_selection import train_test_split
 from tensorflow.python.eager.context import PhysicalDevice
 from tensorflow.python.keras.callbacks import TensorBoard
 
-Res_cpu = 2
+Res_cpu = 2.000
 Res_me = 4000000000
 eta = -1 #η
 theta = 1 #θ
-estados = []
+nu = 0.8 #v
+estados = [[],[]]
 pasos = 100
 pasosList = list(range(0, pasos))
 
 class NetworkEnv(Env): #Define el entorno
     def __init__(self):
         #Acciones disponibles; subir, bajar, mantener
-        #self.action_space = Discrete(3)
-        self.action_space = Discrete(21)
+        self.action_space = Discrete(3)
         #Arreglo porcentaje de recursos asignados
-        self.observation_space = Box(low=0, high=100, dtype=np.float, shape=(1,4))
+        self.observation_space = Box(low=0, high=100, dtype=float, shape=(1,8))
         #Establece los recursos asignados
-        self.state = np.array([0,0,0,0], dtype=np.float)
+        self.state = np.array([0,0,0,0,0,0,0,0], dtype=float)
         #Duracion
         self.length = pasos
 
@@ -46,16 +44,15 @@ class NetworkEnv(Env): #Define el entorno
         # 0 -1 = -1 porcentaje de recurso
         # 1 -1 = 0
         # 2 -1 = 1 porcentaje de recurso
-        #self.state[2] += action -1
-        self.state[2] += action -10
+        self.state = get_state((self.state[4] + ((action - 1)*0.001)), self.state[5], self.state[6], self.state[7])
         # Reduce la duracion en 1
         self.length -= 1
 
         # Calcula la recompensa
-        if self.state[2] < 70 and self.state[2] > 50:
-            reward = 1
+        if self.state[6] > (self.state[4]*nu):
+            reward = eta
         else:
-            reward = eta 
+            reward = theta 
 
         # Duracion completada
         if self.length <= 0:
@@ -72,35 +69,53 @@ class NetworkEnv(Env): #Define el entorno
         return self.state, reward, done, info
 
     def render(self, mode="human"):
-        estados.append(self.state[2])
+        estados[0].append(self.state[0])
+        estados[1].append(self.state[2])
 
-        if len(estados)==100:
-            ypoints = np.array(estados)
+        if len(estados[0])==100:
+            y1points = np.array(estados[0])
+            y2points = np.array(estados[1])
             xpoints = np.array(pasosList)
             plt.xlabel("Pasos")
             plt.ylabel("Recursos asignados")
-            plt.plot(xpoints, ypoints)
+            plt.plot(xpoints, y1points, color ='orange', label ='C CPU (Asignados)')
+            plt.plot(xpoints, y2points, color ='g', label ='U CPU (Usados)')
+            plt.legend()
             plt.grid()
             plt.show()
-            estados.clear()
+            estados[0].clear()
+            estados[1].clear()
         return
 
     def reset(self):
         # Reinicia recursos asignados
-        self.state = [0,0,random.randint(0, 100),0]
+        self.state = get_initial_state()
+        #self.state = [0,0,random.randint(0, 100),0]
         # Reinicia la duracion
         self.length = pasos
         return self.state
 
-def get_state():
-    data = monitoring("0","0")
+def get_initial_state():
+    #data = monitoring("0","0")
+    data = randomValues()
     C_cpu = data.ar_cpu / Res_cpu
     C_me = data.ar_me / Res_me
     U_cpu = data.ur_cpu / data.ar_cpu
     U_me = data.ur_me / data.ar_me
     #I_cpu = data.ur_cpu / data.ar_cpu
     #I_me = data.ur_me / data.ar_me
-    return [C_cpu, C_me, U_cpu, U_me]
+
+    return [C_cpu, C_me, U_cpu, U_me, data.ar_cpu, data.ar_me, data.ur_cpu, data.ur_me]
+
+def get_state(ar_cpu, ar_me, ur_cpu, ur_me):
+    C_cpu = ar_cpu / Res_cpu
+    C_me = ar_me / Res_me
+    U_cpu = ur_cpu / ar_cpu
+    U_me = ur_me / ar_me
+    #I_cpu = ur_cpu / ar_cpu
+    #I_me = ur_me / ar_me
+
+    return [C_cpu, C_me, U_cpu, U_me, ar_cpu, ar_me, ur_cpu, ur_me]
 
 def monitoring (usageCPUold, usageMemoryold):
     podsData = subprocess.check_output(["kubectl","get","pod","-o","wide"]).decode('ascii').split()
@@ -152,20 +167,20 @@ def monitoring (usageCPUold, usageMemoryold):
 
     class data:
         latency = int(state_space_num[0] * 1000)
-        ur_cpu = int(state_space_num[1] * 1000)
-        ur_me = int(state_space_num[2] * 1000)
         ar_cpu = int(state_space_num[3] * 1000)
         ar_me = int(state_space_num[4] * 1000)
+        ur_cpu = int(state_space_num[1] * 1000)
+        ur_me = int(state_space_num[2] * 1000)
 
     return data()
 
 def randomValues():
     class data:
-        latency = int(random.uniform(0.000, 2.000) * 1000)
-        ur_cpu = int(random.randint(0, 100) * 1000)
-        ur_me = state_space_num[2]
-        ar_cpu = state_space_num[3]
-        ar_me = state_space_num[4]
+        latency = random.uniform(0.000, 2.000)
+        ar_cpu = random.uniform(0.000, Res_cpu)
+        ar_me = random.randint(0, Res_me)
+        ur_cpu = random.uniform(0.000, ar_cpu)
+        ur_me = random.randint(0, ar_me)
 
     return data()
 
@@ -222,7 +237,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Es necesario colocar un argumento:")
         print("Entrenamiento: Train")
-        print("Esayos: Test")
+        print("Ensayos: Test")
     else:
         env = NetworkEnv()
         env.observation_space.sample()
