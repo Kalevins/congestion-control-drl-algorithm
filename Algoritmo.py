@@ -16,26 +16,23 @@ from rl.memory import SequentialMemory
 import itertools
 import subprocess
 
-from tensorflow.python.eager.context import PhysicalDevice
-from tensorflow.python.keras.callbacks import TensorBoard
-
-Res_cpu = 2.000
+Res_cpu = 200 #milis
 Res_me = 4000000000
 eta = -1 #η
 theta = 1 #θ
-nu = 0.8 #v
-estados = [[],[]]
-pasos = 100
+nu_cpu = 0.2 #v
+estados = [[],[],[],[]]
+pasos = 1000
 pasosList = list(range(0, pasos))
 
 class NetworkEnv(Env): #Define el entorno
     def __init__(self):
         #Acciones disponibles; subir, bajar, mantener
-        self.action_space = Discrete(3)
+        self.action_space = Discrete(11)
         #Arreglo porcentaje de recursos asignados
-        self.observation_space = Box(low=0, high=100, dtype=float, shape=(1,8))
+        self.observation_space = Box(low=0, high=Res_cpu, dtype=float, shape=(1,5))
         #Establece los recursos asignados
-        self.state = np.array([0,0,0,0,0,0,0,0], dtype=float)
+        self.state = np.array([0,0,0,0,0], dtype=float)
         #Duracion
         self.length = pasos
 
@@ -44,15 +41,25 @@ class NetworkEnv(Env): #Define el entorno
         # 0 -1 = -1 porcentaje de recurso
         # 1 -1 = 0
         # 2 -1 = 1 porcentaje de recurso
-        self.state = get_state((self.state[4] + ((action - 1)*0.001)), self.state[5], self.state[6], self.state[7])
+        if (self.state[0]>10 and self.state[0]<=Res_cpu):
+            self.state = get_state((self.state[0] + (action - 5)), self.state[1], self.state[2], self.state[3], self.state[4])
+        else:
+            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4])
         # Reduce la duracion en 1
         self.length -= 1
 
         # Calcula la recompensa
-        if self.state[6] > (self.state[4]*nu):
-            reward = eta
+        #if (((self.state[2] * (1 + (2 * nu_cpu))) > self.state[0]) and (self.state[0] > (self.state[2] * (1 + nu_cpu)))):
+        if ((self.state[0] >= (self.state[2] * (1 + nu_cpu))) and (self.state[0] <= (self.state[2] * (1 + (2 * nu_cpu))))):
+            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4] + 0.1)
+            reward = theta*np.exp(self.state[4])
+            #reward = theta*(self.state[0]/self.state[2])
+            #reward = theta
         else:
-            reward = theta 
+            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], 0)
+            reward = eta*(self.state[2]/self.state[0])
+            #reward = eta*np.exp(self.state[4])
+            #reward = eta*
 
         # Duracion completada
         if self.length <= 0:
@@ -70,27 +77,35 @@ class NetworkEnv(Env): #Define el entorno
 
     def render(self, mode="human"):
         estados[0].append(self.state[0])
-        estados[1].append(self.state[2])
+        estados[1].append(self.state[1])
+        estados[2].append(self.state[2])
+        estados[3].append(self.state[3])
 
-        if len(estados[0])==100:
-            y1points = np.array(estados[0])
-            y2points = np.array(estados[1])
+        if len(estados[0])==pasos:
+            ypoints_ar_cpu = np.array(estados[0])
+            ypoints_ar_me = np.array(estados[1])
+            ypoints_ur_cpu = np.array(estados[2])
+            ypoints_ur_me = np.array(estados[3])
             xpoints = np.array(pasosList)
             plt.xlabel("Pasos")
             plt.ylabel("Recursos asignados")
-            plt.plot(xpoints, y1points, color ='orange', label ='C CPU (Asignados)')
-            plt.plot(xpoints, y2points, color ='g', label ='U CPU (Usados)')
+            #plt.plot(xpoints, ypoints_ar_me, color ='orange', label ='C CPU (Asignados)')
+            #plt.plot(xpoints, ypoints_ur_me, color ='g', label ='U CPU (Usados)')
+            plt.plot(xpoints, ypoints_ar_cpu, color ='r', label ='Ar CPU (Asignados)')
+            plt.plot(xpoints, ypoints_ur_cpu, color ='b', label ='Ur CPU (Usados)')
             plt.legend()
             plt.grid()
             plt.show()
             estados[0].clear()
             estados[1].clear()
+            estados[2].clear()
+            estados[3].clear()
         return
 
     def reset(self):
         # Reinicia recursos asignados
         self.state = get_initial_state()
-        #self.state = [0,0,random.randint(0, 100),0]
+        #self.state = [random.randint(0, 100),0,50,0,0]
         # Reinicia la duracion
         self.length = pasos
         return self.state
@@ -98,24 +113,26 @@ class NetworkEnv(Env): #Define el entorno
 def get_initial_state():
     #data = monitoring("0","0")
     data = randomValues()
-    C_cpu = data.ar_cpu / Res_cpu
-    C_me = data.ar_me / Res_me
-    U_cpu = data.ur_cpu / data.ar_cpu
-    U_me = data.ur_me / data.ar_me
+    #C_cpu = data.ar_cpu / Res_cpu
+    #C_me = data.ar_me / Res_me
+    #U_cpu = data.ur_cpu / data.ar_cpu
+    #U_me = data.ur_me / data.ar_me
     #I_cpu = data.ur_cpu / data.ar_cpu
     #I_me = data.ur_me / data.ar_me
+    Violation = 0
 
-    return [C_cpu, C_me, U_cpu, U_me, data.ar_cpu, data.ar_me, data.ur_cpu, data.ur_me]
+    return [data.ar_cpu, data.ar_me, data.ur_cpu, data.ur_me, Violation]
 
-def get_state(ar_cpu, ar_me, ur_cpu, ur_me):
-    C_cpu = ar_cpu / Res_cpu
-    C_me = ar_me / Res_me
-    U_cpu = ur_cpu / ar_cpu
-    U_me = ur_me / ar_me
+def get_state(ar_cpu, ar_me, ur_cpu, ur_me, violation):
+    #C_cpu = ar_cpu / Res_cpu
+    #C_me = ar_me / Res_me
+    #U_cpu = ur_cpu / ar_cpu
+    #U_me = ur_me / ar_me
     #I_cpu = ur_cpu / ar_cpu
     #I_me = ur_me / ar_me
+    Violation = violation
 
-    return [C_cpu, C_me, U_cpu, U_me, ar_cpu, ar_me, ur_cpu, ur_me]
+    return [ar_cpu, ar_me, ur_cpu, ur_me, Violation]
 
 def monitoring (usageCPUold, usageMemoryold):
     podsData = subprocess.check_output(["kubectl","get","pod","-o","wide"]).decode('ascii').split()
@@ -166,20 +183,21 @@ def monitoring (usageCPUold, usageMemoryold):
             state_space_num.append(float(var))
 
     class data:
-        latency = int(state_space_num[0] * 1000)
-        ar_cpu = int(state_space_num[3] * 1000)
-        ar_me = int(state_space_num[4] * 1000)
-        ur_cpu = int(state_space_num[1] * 1000)
-        ur_me = int(state_space_num[2] * 1000)
+        latency = state_space_num[0]
+        ar_cpu = state_space_num[3]
+        ar_me = state_space_num[4]
+        ur_cpu = state_space_num[1]
+        ur_me = state_space_num[2]
 
     return data()
 
 def randomValues():
     class data:
         latency = random.uniform(0.000, 2.000)
-        ar_cpu = random.uniform(0.000, Res_cpu)
+        ar_cpu = random.randint(1, Res_cpu)
         ar_me = random.randint(0, Res_me)
-        ur_cpu = random.uniform(0.000, ar_cpu)
+        #ur_cpu = random.uniform(0.000, ar_cpu)
+        ur_cpu = Res_cpu / 2
         ur_me = random.randint(0, ar_me)
 
     return data()
@@ -215,9 +233,9 @@ def get_model(states, actions):
     model.add(Flatten(input_shape=(states)))
 
     # Add a hidden layers with dropout
-    model.add(Dense(24, activation="relu", input_shape=states))
-    #model.add(Dropout(0.5))
-    model.add(Dense(24, activation="relu"))
+    model.add(Dense(128, activation="relu", input_shape=states))
+    model.add(Dropout(0.1))
+    #model.add(Dense(24, activation="relu"))
     #model.add(Dropout(0.5))
 
 
@@ -236,8 +254,7 @@ def get_agent(model, actions):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Es necesario colocar un argumento:")
-        print("Entrenamiento: Train")
-        print("Ensayos: Test")
+        print("Entrenamiento: Train, Ensayos: Test")
     else:
         env = NetworkEnv()
         env.observation_space.sample()
@@ -263,5 +280,6 @@ if __name__ == "__main__":
         elif sys.argv[1] == "Test":
             main2()
         else:
-            print("Opción inválida")
+            print("Argumento "+sys.argv[1]+" no es válido")
+            print("Entrenamiento: Train, Ensayos: Test")
         #state_space()
