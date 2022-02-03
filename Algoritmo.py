@@ -16,19 +16,20 @@ from rl.memory import SequentialMemory
 import itertools
 import subprocess
 
-Res_cpu = 200 #milis
+Res_cpu = 2000 #milis
 Res_me = 4000000000
-eta = -1 #η
+eta = -0.1 #η
 theta = 1 #θ
 nu_cpu = 0.2 #v
 estados = [[],[],[],[]]
-pasos = 1000
+pasos = 2000
 pasosList = list(range(0, pasos))
+train_steps = 50000
 
 class NetworkEnv(Env): #Define el entorno
     def __init__(self):
         #Acciones disponibles; subir, bajar, mantener
-        self.action_space = Discrete(11)
+        self.action_space = Discrete(3)
         #Arreglo porcentaje de recursos asignados
         self.observation_space = Box(low=0, high=Res_cpu, dtype=float, shape=(1,5))
         #Establece los recursos asignados
@@ -41,25 +42,25 @@ class NetworkEnv(Env): #Define el entorno
         # 0 -1 = -1 porcentaje de recurso
         # 1 -1 = 0
         # 2 -1 = 1 porcentaje de recurso
-        if (self.state[0]>10 and self.state[0]<=Res_cpu):
-            self.state = get_state((self.state[0] + (action - 5)), self.state[1], self.state[2], self.state[3], self.state[4])
-        else:
-            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4])
+        #if (self.state[0]>10 and self.state[0]<=Res_cpu):
+        self.state = get_state((self.state[0] + (action - 1)), self.state[1], self.state[2], self.state[3], self.state[4])
+        #else:
+        #    self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4])
         # Reduce la duracion en 1
         self.length -= 1
 
         # Calcula la recompensa
-        #if (((self.state[2] * (1 + (2 * nu_cpu))) > self.state[0]) and (self.state[0] > (self.state[2] * (1 + nu_cpu)))):
-        if ((self.state[0] >= (self.state[2] * (1 + nu_cpu))) and (self.state[0] <= (self.state[2] * (1 + (2 * nu_cpu))))):
-            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4] + 0.1)
-            reward = theta*np.exp(self.state[4])
+        if ((self.state[0] >= (self.state[2] * (1 + nu_cpu))) and (self.state[0] <= (self.state[2] * (1 + (1 - nu_cpu))))):
+        #if ((self.state[0] >= 1100) and (self.state[0] <= 1200)):
+            self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], self.state[4] + 0.001)
+            #reward = theta*np.exp(self.state[4])
             #reward = theta*(self.state[0]/self.state[2])
-            #reward = theta
+            reward = theta
         else:
             self.state = get_state(self.state[0], self.state[1], self.state[2], self.state[3], 0)
-            reward = eta*(self.state[2]/self.state[0])
+            #reward = eta*(self.state[2]/self.state[0])
             #reward = eta*np.exp(self.state[4])
-            #reward = eta*
+            reward = eta
 
         # Duracion completada
         if self.length <= 0:
@@ -202,14 +203,14 @@ def randomValues():
 
     return data()
 
-def main1():
+def train():
     model = get_model(states, actions)
     model.summary()
 
     dqn = get_agent(model, actions)
 
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-    dqn.fit(env, nb_steps=50000, visualize=False, verbose=1)
+    dqn.fit(env, nb_steps=train_steps, visualize=False, verbose=1)
 
     #scores = dqn.test(env, nb_episodes=100, visualize=False)
     #print(scores.history)
@@ -218,7 +219,7 @@ def main1():
     dqn.test(env, nb_episodes=10, visualize=False)
     dqn.save_weights('dqn_weights.h5f', overwrite=True)
 
-def main2():
+def test():
     model = get_model(states, actions)
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
@@ -234,7 +235,7 @@ def get_model(states, actions):
 
     # Add a hidden layers with dropout
     model.add(Dense(128, activation="relu", input_shape=states))
-    model.add(Dropout(0.1))
+    model.add(Dense(128, activation="relu"))
     #model.add(Dense(24, activation="relu"))
     #model.add(Dropout(0.5))
 
@@ -276,9 +277,9 @@ if __name__ == "__main__":
         states = env.observation_space.shape
         actions = env.action_space.n
         if sys.argv[1] == "Train":
-            main1()
+            train()
         elif sys.argv[1] == "Test":
-            main2()
+            test()
         else:
             print("Argumento "+sys.argv[1]+" no es válido")
             print("Entrenamiento: Train, Ensayos: Test")
