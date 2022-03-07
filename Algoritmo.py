@@ -16,7 +16,7 @@ from rl.memory import SequentialMemory
 import itertools
 import subprocess
 
-Res_cpu = 200 #x10^-2
+Res_cpu = 100 #x10^-2
 Res_me = 4000000000
 eta = -1 #η
 theta = 1 #θ
@@ -46,6 +46,10 @@ class NetworkEnv(Env):
         take_action = action - 10
         # Aplica la acción
         self.state[0] += take_action
+        #Aplica random al state [2]
+        self.state[2] += random.randint(-10,10)
+        if(self.state[2]<=0):
+            self.state[2] = 1
         # Reduce la duracion en 1
         self.length -= 1
 
@@ -83,15 +87,16 @@ class NetworkEnv(Env):
         return self.state, reward, done, info
 
     def render(self, mode="human"):
-        estados[0].append(self.state[0]/100)
+        estados[0].append(self.state[0])
         estados[1].append(self.state[1])
-        estados[2].append(self.state[2]/100)
+        estados[2].append(self.state[2])
         estados[3].append(self.state[3])
 
         if len(estados[0])==pasos:
             ypoints_ar_cpu = np.array(estados[0])
             ypoints_ar_me = np.array(estados[1])
             ypoints_ur_cpu = np.array(estados[2])
+            print(ypoints_ur_cpu)
             ypoints_ur_me = np.array(estados[3])
             xpoints = np.array(pasosList)
             plt.xlabel("Pasos")
@@ -122,16 +127,18 @@ class NetworkEnv(Env):
 def get_initial_state():
     #data = monitoring("0","0")
 
-    latency = random.randint(0, 2000)
-    ar_cpu = random.randint(1, Res_cpu)
+    #ur_cpu=getMetrics()[0]
+    #ur_me=getMetrics()[1]
+    #latency=getMetrics()[2]
+    ur_cpu = random.randint(0,100)
+    ur_me = random.randint(0,100)
+    latency = random.randint(15,120)
     #ar_me = random.randint(0, Res_me)
     #ur_cpu = random.randint(0, ar_cpu)
     #ur_me = random.randint(0, ar_me)
 
-    #ar_cpu = 0
-    ar_me = 0
-    ur_cpu = Res_cpu/2
-    ur_me = 0
+    ar_cpu = random.randint(0,100)
+    ar_me = random.randint(0,100)
 
     #C_cpu = data.ar_cpu / Res_cpu
     #C_me = data.ar_me / Res_me
@@ -143,62 +150,20 @@ def get_initial_state():
 
     return [ar_cpu, ar_me, ur_cpu, ur_me, Violation]
 
-def monitoring (usageCPUold, usageMemoryold):
-    podsData = subprocess.check_output(["kubectl","get","pod","-o","wide"]).decode('ascii').split()
-    ranName = podsData[11]
-    ipRan = podsData[16]
-    upfName = podsData[20]
-    ipUpf = podsData[25]
-
-    try:
-        limitCPU = eval(subprocess.check_output(["kubectl","get","pod",upfName,"-o","jsonpath='{.spec.containers[0].resources.limits.cpu}'"]).decode('ascii').replace("i",""))
-        limitMemory = eval(subprocess.check_output(["kubectl","get","pod",upfName,"-o","jsonpath='{.spec.containers[0].resources.limits.memory}'"]).decode('ascii').replace("i",""))
-
-        latencyData = subprocess.check_output(["kubectl","exec",ranName,"--","ping",ipUpf,"-c","1"]).decode('ascii').split()
-        latency = latencyData[12].replace("time=","")
-    except:
-        podsData = subprocess.check_output(["kubectl","get","pod","-o","wide"]).decode('ascii').split()
-        ranName = podsData[11]
-        ipRan = podsData[16]
-
-        if (len(podsData) > 35 and podsData[20] == upfName):
-            upfName = podsData[29]
-            ipUpf = podsData[34]
-        else:
-            upfName = podsData[20]
-            ipUpf = podsData[25]
-
-    try:
-        usageData = subprocess.check_output(["kubectl","top","pod",upfName,"--sort-by=cpu"]).decode('ascii').split()
-        usageCPU = usageData[4].replace("i","")
-        usageMemory = usageData[5].replace("i","")
-    except:
-        usageCPU = usageCPUold
-        usageMemory = usageMemoryold
-
-    state_space = [latency, usageCPU, usageMemory, limitCPU, limitMemory]
-    state_space_num = []
-
-    for var in state_space:
-        if (var.find("m") != -1):
-            state_space_num.append(float(var.replace("m","")) / 1000)
-        elif (var.find("K") != -1):
-            state_space_num.append(float(var.replace("K","")) * 1000)
-        elif (var.find("M") != -1):
-            state_space_num.append(float(var.replace("M","")) * 1000000)
-        elif (var.find("G") != -1):
-            state_space_num.append(float(var.replace("G","")) * 1000000000)
-        else:
-            state_space_num.append(float(var))
-
-    class data:
-        latency = state_space_num[0]
-        ar_cpu = state_space_num[3]
-        ar_me = state_space_num[4]
-        ur_cpu = state_space_num[1]
-        ur_me = state_space_num[2]
-
-    return data()
+def getMetrics():
+    cmd="sudo docker exec -it mn.d1 top -n 1| grep -E '(PID|ITGSend)' | grep -v '%CPU' | awk '{print $10}'"
+    cmd2="sudo docker exec -it mn.d1 top -n 1| grep -E '(PID|ITGSend)' | grep -v '%MEM' | awk '{print $11}'"
+    ps=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output=ps.communicate()[0].decode('utf-8')
+    ps2=subprocess.Popen(cmd2,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output2=ps2.communicate()[0].decode('utf-8')
+    cmd3="sudo docker exec -it mn.d2 /home/D-ITG-2.8.1-r1023/bin/ITGDec /home/D-ITG-2.8.1-r1023/bin/receiver.log | awk 'NR==12 {print $4}'"
+    ps3=subprocess.Popen(cmd3,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output3=ps3.communicate()[0].decode('utf-8')
+    latency=float(output3)*1000
+    data = np.array([float(output.rstrip("\n")),float(output2.rstrip("\n")),latency])
+	
+    return data
 
 def train(states, actions):
     model = get_model(states, actions)
