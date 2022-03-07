@@ -127,25 +127,31 @@ class NetworkEnv(Env):
 def get_initial_state():
     #data = monitoring("0","0")
 
-    #ur_cpu=getMetrics()[0]
-    #ur_me=getMetrics()[1]
-    #latency=getMetrics()[2]
-    ur_cpu = random.randint(0,100)
-    ur_me = random.randint(0,100)
-    latency = random.randint(15,120)
-    #ar_me = random.randint(0, Res_me)
-    #ur_cpu = random.randint(0, ar_cpu)
-    #ur_me = random.randint(0, ar_me)
+    if sys.argv[1] == "Start":
+        ur_cpu=getMetrics()[0]
+        ur_me=getMetrics()[1]
+        latency=getMetrics()[2]
 
-    ar_cpu = random.randint(0,100)
-    ar_me = random.randint(0,100)
+        ar_cpu = random.randint(0,100)
+        ar_me = random.randint(0,100)
+    else :
+        ur_cpu = random.randint(0,100)
+        ur_me = random.randint(0,100)
+        latency = random.randint(15,120)
+        #ar_me = random.randint(0, Res_me)
+        #ur_cpu = random.randint(0, ar_cpu)
+        #ur_me = random.randint(0, ar_me)
 
-    #C_cpu = data.ar_cpu / Res_cpu
-    #C_me = data.ar_me / Res_me
-    #U_cpu = data.ur_cpu / data.ar_cpu
-    #U_me = data.ur_me / data.ar_me
-    #I_cpu = data.ur_cpu / data.ar_cpu
-    #I_me = data.ur_me / data.ar_me
+        ar_cpu = random.randint(0,100)
+        ar_me = random.randint(0,100)
+
+        #C_cpu = data.ar_cpu / Res_cpu
+        #C_me = data.ar_me / Res_me
+        #U_cpu = data.ur_cpu / data.ar_cpu
+        #U_me = data.ur_me / data.ar_me
+        #I_cpu = data.ur_cpu / data.ar_cpu
+        #I_me = data.ur_me / data.ar_me
+
     Violation = 0
 
     return [ar_cpu, ar_me, ur_cpu, ur_me, Violation]
@@ -162,7 +168,7 @@ def getMetrics():
     output3=ps3.communicate()[0].decode('utf-8')
     latency=float(output3)*1000
     data = np.array([float(output.rstrip("\n")),float(output2.rstrip("\n")),latency])
-	
+
     return data
 
 def train(states, actions):
@@ -220,7 +226,7 @@ def get_agent(model, actions):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Es necesario colocar un argumento:")
-        print("Entrenamiento: Train, Ensayos: Test")
+        print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
     else:
         env = NetworkEnv()
         env.reset()
@@ -230,7 +236,9 @@ if __name__ == "__main__":
             train(states, actions)
         elif sys.argv[1] == "Test":
             test(states, actions)
+        elif sys.argv[1] == "Start":
+            test(states, actions)
         else:
             print("Argumento "+sys.argv[1]+" no es válido.")
-            print("Entrenamiento: Train, Ensayos: Test")
+            print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
         #state_space()
