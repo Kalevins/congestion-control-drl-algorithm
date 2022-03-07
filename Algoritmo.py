@@ -231,6 +231,6 @@ if __name__ == "__main__":
         elif sys.argv[1] == "Test":
             test(states, actions)
         else:
-            print("Argumento "+sys.argv[1]+" no es válido")
+            print("Argumento "+sys.argv[1]+" no es válido.")
             print("Entrenamiento: Train, Ensayos: Test")
         #state_space()
