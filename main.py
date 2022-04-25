@@ -64,6 +64,8 @@ def readData():
     print(type(CPUd1))
 
 
+def ShutDown():
+    os.system("sudo mn -c")
 
 
 #StartTopology()
