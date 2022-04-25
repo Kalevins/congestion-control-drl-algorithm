@@ -33,15 +33,16 @@ def StartTopology():
     #net.stop()
 
 def UpdateCPU(a,b):
-    if a==8 & b==4:
+    if a==8 and b==4:
         os.system("sudo docker update --cpuset-cpus='0,1,2,3,4,5,6,7' mn.d1")
         os.system("sudo docker update --cpuset-cpus='8,9,10,11' mn.d2")
-    elif a==8 & b==2:
+    elif a==8 and b==2:
         os.system("sudo docker update --cpuset-cpus='0,1,2,3,4,5,6,7' mn.d1")
         os.system("sudo docker update --cpuset-cpus='8,9' mn.d2")
-    elif a==8 & b==1:
+    elif a==8 and b==1:
         os.system("sudo docker update --cpuset-cpus='0,1,2,3,4,5,6,7' mn.d1")
         os.system("sudo docker update --cpuset-cpus='8' mn.d2")
+    return a,b
 
 def sendTraffic():
     #Prueba de tráfico de una cirugía remota
@@ -58,10 +59,14 @@ def addSurgery():
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp 10009 -C 375 -c 512 -T TCP -t 10000 -x receiver.log &')
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp 10010 -C 32 -c 1568 -T UDP -t 10000 -x receiver.log &')
 
-def readData():
-    CPUd1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'")
-    MEMd1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d1  | awk '{print $3}' | sed 's/.$//'")
-    print(type(CPUd1))
+def readData(x,y):
+    Cd1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'")
+    Md1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d1  | awk '{print $3}' | sed 's/.$//'")
+    Cd2=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d2 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'")
+    Md2=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d2  | awk '{print $3}' | sed 's/.$//'")
+    CPUd1=(x*Cd1)/100
+    CPUd2=(y*Cd2)/100
+    print(CPUd1,CPUd2)
 
 
 def ShutDown():
@@ -69,7 +74,8 @@ def ShutDown():
 
 
 #StartTopology()
-#UpdateCPU(8,4)
-#sendTraffic()
-readData()
+x,y=UpdateCPU(8,4)
+print(x,y)
+sendTraffic()
+readData(x,y)
 
