@@ -1,1 +1,0 @@
-sudo docker exec -it mn.d1 ./ITGSend -a 10.0.0.252 -rp 10001 -C 10000 -c 20000 -T UDP -t 10000 -l sender.log -x receiver.log

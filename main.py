@@ -2,7 +2,7 @@
 """
 This is the most simple example to showcase Containernet.
 """
-import os 
+import os
 import subprocess
 import numpy as np
 
