@@ -13,6 +13,7 @@ from mininet.link import TCLink
 from mininet.log import info, setLogLevel
 setLogLevel('info')
 
+
 def StartTopology():
     net = Containernet(controller=Controller)
     info('*** Adding controller\n')
@@ -76,8 +77,10 @@ def readData(x,y):
     output4=ps4.communicate()[0].decode('utf-8')
     CPUd1=(x*float(output))/100
     CPUd2=(y*float(output3))/100
-    arrayCPU=np.array(CPUd1,CPUd2)
-
+    MEMd1=(float(output2)*512)/100
+    MEMd2=(float(output4)*512)/100
+    arrayCPU=np.array([CPUd1,CPUd2,MEMd1,MEMd2])
+    print (arrayCPU)
 
 def ShutDown():
     os.system("sudo mn -c")
