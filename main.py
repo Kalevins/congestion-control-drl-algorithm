@@ -3,6 +3,8 @@
 This is the most simple example to showcase Containernet.
 """
 import os 
+import subprocess
+import numpy as np
 
 from mininet.net import Containernet
 from mininet.node import Controller
@@ -60,13 +62,21 @@ def addSurgery():
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp 10010 -C 32 -c 1568 -T UDP -t 10000 -x receiver.log &')
 
 def readData(x,y):
-    Cd1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'")
-    Md1=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d1  | awk '{print $3}' | sed 's/.$//'")
-    Cd2=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d2 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'")
-    Md2=os.system("sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d2  | awk '{print $3}' | sed 's/.$//'")
-    CPUd1=(x*Cd1)/100
-    CPUd2=(y*Cd2)/100
-    print(CPUd1,CPUd2)
+    cmd="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'"
+    cmd2="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d1  | awk '{print $3}' | sed 's/.$//'"
+    cmd3="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d2 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'"
+    cmd4="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d2  | awk '{print $3}' | sed 's/.$//'"
+    ps=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output=ps.communicate()[0].decode('utf-8')
+    ps2=subprocess.Popen(cmd2,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output2=ps2.communicate()[0].decode('utf-8')
+    ps3=subprocess.Popen(cmd3,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output3=ps3.communicate()[0].decode('utf-8')
+    ps4=subprocess.Popen(cmd4,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output4=ps4.communicate()[0].decode('utf-8')
+    CPUd1=(x*float(output))/100
+    CPUd2=(y*float(output3))/100
+    arrayCPU=np.array(CPUd1,CPUd2)
 
 
 def ShutDown():
