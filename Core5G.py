@@ -93,6 +93,13 @@ def obtainCPUMEM():
   arrayCPU=np.array([CPUd1,CPUd2,MEMd1,MEMd2])
   return arrayCPU
 
+def ObtainLatency():
+  #Latency of tests
+  latencytests="sudo docker exec -t mn.d2 ./ITGDec receiver.log | tail -n 10 | awk 'NR==1{print $4}'"
+  pslatencytests=subprocess.Popen(latencytests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  outputLatencytests=pslatencytests.communicate()[0].decode('utf-8')
+  lat=float(outputLatencytests)*1000
+
 def ShutDown():
   """
   Function that turns off the topology
