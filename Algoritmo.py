@@ -1,4 +1,6 @@
 from gym import Env
+from main import *
+import math
 from gym.spaces import Discrete, Box #Espacio discreto y espacio caja
 import numpy as np
 import random
@@ -21,12 +23,15 @@ Res_me = 4000000000
 eta = -1 #η
 theta = 1 #θ
 #nu_cpu = 0.2 #v
-nu_cpu = 20 #v
+nu_cpu = 5 #v
+NumCoresD1=4
+NumCoresD2=1
+
 
 estados = [[],[],[],[]]
 pasos = 100
 pasosList = list(range(0, pasos))
-train_steps = 50000
+train_steps = 100000
 action_space_size = 21
 
 # Define el entorno
@@ -40,6 +45,11 @@ class NetworkEnv(Env):
         self.state = [0,0,0,0,0]
         # Duracion
         self.length = pasos
+        self.numCoresD1=NumCoresD1
+        self.numCoresD2=NumCoresD2
+        self.latency=[]
+        self.repeticiones=0
+        self.NumRepeats = 3
 
     def step(self, action):
         # Modifica la accion a tomar en positivo y negativo
@@ -47,14 +57,16 @@ class NetworkEnv(Env):
         # Aplica la acción
         self.state[0] += take_action
         #Aplica random al state [2]
-        self.state[2] += random.randint(-10,10)
+        """ self.state[2] += random.randint(-10,10)
         if(self.state[2]<=0):
-            self.state[2] = 1
+            self.state[2] = 1  """
         # Reduce la duracion en 1
         self.length -= 1
 
         # Calcula la recompensa
-        if (self.state[0] >= self.state[2] + nu_cpu):
+        if(self.state[0] >= Res_cpu or self.state[0] <= 0):
+            reward = eta*100
+        elif (self.state[0] >= self.state[2] + nu_cpu):
             # Agrega violación
             self.state[4] += 0.001
             #reward = theta*np.exp(self.state[4])
@@ -65,17 +77,31 @@ class NetworkEnv(Env):
             self.state[4] = 0.0
             #reward = eta*(self.state[2]/self.state[0])
             #reward = eta*np.exp(self.state[4])
-            reward = eta
+            reward = eta*10
 
         """ # Fallo total CPU
         if self.state[0] >= Res_cpu or self.state[0] <= 0:
             done = True """
 
         # Duracion completada
-        if self.length <= 0:
-            done = True
+        if sys.argv[1] == "Start":
+            if self.length <= 0:
+                self.numCoresD2 = int(math.ceil(self.state[0]/10))
+                test(states,actions)
+                self.repeticiones+=1
+                if(self.repeticiones == self.NumRepeats):
+                    done = True
+                else:
+                    self.length = pasos
+            else:
+                done = False
         else:
-            done = False
+            if self.length <= 0:
+                done = True
+            else:
+                done = False
+
+        
 
         # Aplica ruido
         #self.state += random.randint(-1,1)
@@ -116,7 +142,7 @@ class NetworkEnv(Env):
 
     def reset(self):
         # Reinicia recursos asignados
-        self.state = get_initial_state()
+        self.state = get_initial_state(self)
         #self.state = [random.randint(0, 100),0,50,0,0]
 
         # Reinicia la duracion
@@ -124,16 +150,21 @@ class NetworkEnv(Env):
 
         return self.state
 
-def get_initial_state():
-    #data = monitoring("0","0")
-
+def get_initial_state(self):
     if sys.argv[1] == "Start":
-        ur_cpu=getMetrics()[0]
-        ur_me=getMetrics()[1]
-        latency=getMetrics()[2]
+        StartTopology()
+        UpdateCPU(self.numCoresD1,self.numCoresD2)
+        AddSurgery(3)
+        time.sleep(5)
+        ur_cpu=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[1]
+        ur_me=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[2]
+        time.sleep(25)
+        self.latency.append(ObtainLatency())
+        np.savetxt('latency.csv',self.latency,delimiter=',')
+        ShutDown()
+        ar_cpu = self.numCoresD2*10
+        ar_me = 100
 
-        ar_cpu = random.randint(0,100)
-        ar_me = random.randint(0,100)
     else :
         ur_cpu = random.randint(0,100)
         ur_me = random.randint(0,100)
@@ -156,27 +187,6 @@ def get_initial_state():
 
     return [ar_cpu, ar_me, ur_cpu, ur_me, Violation]
 
-def getMetrics():
-    try:
-        cmd="sudo docker exec -it mn.d1 top -n 1| grep -E '(PID|ITGSend)' | grep -v '%CPU' | awk '{print $10}'"
-        cmd2="sudo docker exec -it mn.d1 top -n 1| grep -E '(PID|ITGSend)' | grep -v '%MEM' | awk '{print $11}'"
-        ps=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-        output=ps.communicate()[0].decode('utf-8')
-        ps2=subprocess.Popen(cmd2,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-        output2=ps2.communicate()[0].decode('utf-8')
-        cmd3="sudo docker exec -it mn.d2 /home/D-ITG-2.8.1-r1023/bin/ITGDec /home/D-ITG-2.8.1-r1023/bin/receiver.log | awk 'NR==12 {print $4}'"
-        ps3=subprocess.Popen(cmd3,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-        output3=ps3.communicate()[0].decode('utf-8')
-        latency=float(output3)*1000
-        data = np.array([float(output.rstrip("\n")),float(output2.rstrip("\n")),latency])
-
-        return data
-    except:
-        data = np.array([1,1,1])
-
-        return data
-
-
 def train(states, actions):
     model = get_model(states, actions)
     model.summary()
@@ -190,7 +200,10 @@ def test(states, actions):
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
     dqn.load_weights('dqn_weights.h5f')
-    dqn.test(env, nb_episodes=10, visualize=True)
+    if sys.argv[1] == "Start":
+        dqn.test(env, nb_episodes=1, visualize=True)
+    else:
+        dqn.test(env, nb_episodes=10, visualize=True)
 
 def get_model(states, actions):
     # Crea la red neuronal
@@ -230,6 +243,9 @@ def get_agent(model, actions):
     return dqn
 
 if __name__ == "__main__":
+    latency=[]
+
+
     if len(sys.argv) != 2:
         print("Es necesario colocar un argumento:")
         print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")

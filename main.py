@@ -6,6 +6,7 @@ import os
 import subprocess
 import numpy as np
 import time
+import statistics
 
 from mininet.net import Containernet
 from mininet.node import Controller
@@ -13,6 +14,7 @@ from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import info, setLogLevel
 setLogLevel('info')
+
 
 def StartTopology():
   """
@@ -27,7 +29,8 @@ def StartTopology():
   d1 = net.addDocker('d1', ip='10.0.0.251', dimage="test:latest",mem_limit="512m")
   d2 = net.addDocker('d2', ip='10.0.0.252', dimage="test:latest",mem_limit="512m")
   info('*** Creating links\n')
-  net.addLink(d1, d2, cls=TCLink, delay='10ms')
+  net.addLink(d1, d2,delay='1ms')
+  #net.addLink(d1, d2, cls=TCLink, delay='10ms')
   info('*** Starting network\n')
   net.start()
   info('*** Testing connectivity\n')
@@ -40,7 +43,7 @@ def StartTopology():
   #info('*** Stopping network')
   #net.stop()
 
-def UpdateCPU():
+def UpdateCPU(numCoresD1,numCoresD2):
   """
   Function that allocates and/or modifies the CPU capacity of the nodes  """
   info('****************************\n')
@@ -63,7 +66,7 @@ def AddSurgery(numSurgeries):
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+3))+' -C 375 -c 512 -T TCP -t 10000 -x receiver.log &')
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+4))+' -C 32 -c 1568 -T UDP -t 10000 -x receiver.log &')
 
-def obtainCPUMEM():
+def obtainCPUMEM(numCoresD1,numCoresD2):
   """
   Function that obtains CPU and Memory metrics
   """
@@ -73,7 +76,7 @@ def obtainCPUMEM():
   cmdCPUd1="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'"
   psCPUd1=subprocess.Popen(cmdCPUd1,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   outputCPUd1=psCPUd1.communicate()[0].decode('utf-8')
-  CPUd1=(numCoresD1*float(outputCPUd1))/100
+  CPUd1=((numCoresD1*float(outputCPUd1))/100)*10
   #MEM d1
   cmdMEMd1="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d1  | awk '{print $3}' | sed 's/.$//'"
   psMEMd1=subprocess.Popen(cmdMEMd1,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -83,7 +86,7 @@ def obtainCPUMEM():
   cmdCPUd2="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d2 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'"
   psCPUd2=subprocess.Popen(cmdCPUd2,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   outputCPUd2=psCPUd2.communicate()[0].decode('utf-8')
-  CPUd2=(numCoresD2*float(outputCPUd2))/100
+  CPUd2=((numCoresD2*float(outputCPUd2))/100)*10
   #MEM d2
   cmdMEMd2="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}' mn.d2  | awk '{print $3}' | sed 's/.$//'"
   psMEMd2=subprocess.Popen(cmdMEMd2,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -91,6 +94,8 @@ def obtainCPUMEM():
   MEMd2=(float(outputMEMd2)*512)/100
   #Array
   arrayCPU=np.array([CPUd1,CPUd2,MEMd1,MEMd2])
+  arrayCPU=np.around(arrayCPU)
+  arrayCPU=arrayCPU.astype(int)
   return arrayCPU
 
 def ObtainLatency():
@@ -99,6 +104,7 @@ def ObtainLatency():
   pslatencytests=subprocess.Popen(latencytests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   outputLatencytests=pslatencytests.communicate()[0].decode('utf-8')
   lat=float(outputLatencytests)*1000
+  return lat
 
 def ShutDown():
   """
@@ -108,14 +114,18 @@ def ShutDown():
   info('*** Shutdown Topology ***\n')
   os.system("sudo mn -c")
 
-if __name__ == "__main__":
-  numCoresD1 = 8
-  numCoresD2 = 4
-  #StartTopology()
-  #UpdateCPU()
-  #AddSurgery(1)
-  #time.sleep(5)
-  #print(obtainCPUMEM())
-  #time.sleep(5)
-  ObtainLatency()
+""" if __name__ == "__main__":
+  numCoresD1 = 2
+  numCoresD2 = 2
+  latency=[]
+  StartTopology()
+  UpdateCPU()
+  AddSurgery(3)
+  time.sleep(5)
+  print(obtainCPUMEM())
+  time.sleep(25)
+  latency.append(ObtainLatency())
   #ShutDown()
+
+  mean = statistics.mean(latency)
+  print(mean) """
