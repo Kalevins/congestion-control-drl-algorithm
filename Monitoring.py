@@ -10,33 +10,31 @@ import statistics
 
 from mininet.net import Containernet
 from mininet.node import Controller
-from mininet.cli import CLI
-from mininet.link import TCLink
 from mininet.log import info, setLogLevel
 setLogLevel('info')
 
 
 def StartTopology():
   """
-  Function that creates and initializes the network topology
+  Funcion que crea e inicializa la topologia de red
   """
   info('****************************\n')
-  info('*** Start Topology ***\n')
+  info('*** Iniciando Topologia ***\n')
   net = Containernet(controller=Controller)
-  info('*** Adding controller\n')
+  info('*** Agregando Controlador\n')
   net.addController('c0')
-  info('*** Adding docker containers\n')
+  info('*** Agregando Nodos (Docker Containers)\n')
   d1 = net.addDocker('d1', ip='10.0.0.251', dimage="test:latest",mem_limit="512m")
   d2 = net.addDocker('d2', ip='10.0.0.252', dimage="test:latest",mem_limit="512m")
-  info('*** Creating links\n')
-  net.addLink(d1, d2,delay='1ms')
+  info('*** Creando Enlaces\n')
+  net.addLink(d1, d2, delay='1ms')
   #net.addLink(d1, d2, cls=TCLink, delay='10ms')
-  info('*** Starting network\n')
+  info('*** Iniciando Red\n')
   net.start()
-  info('*** Testing connectivity\n')
+  info('*** Probando Conectividad\n')
   net.ping([d1, d2])
-  info('*** Starting Commands\n')
-  info('*** Server Start\n')
+  info('*** Iniciando Comandos\n')
+  info('*** Iniciando Servidor D-ITG\n')
   d2.cmd('/home/D-ITG-2.8.1-r1023/src/ITGRecv/ITGRecv &')
   #info('*** Send Traffic\n')
   #d1.cmd('/home/D-ITG-2.8.1-r1023/src/ITGSend/ITGSend -a 10.0.0.252 -rp 10001 -C 98 -c 512 -T UDP -t 60000 -l sender.log -x receiver.log')
@@ -45,21 +43,22 @@ def StartTopology():
 
 def UpdateCPU(numCoresD1,numCoresD2):
   """
-  Function that allocates and/or modifies the CPU capacity of the nodes  """
+  Función que asigna y/o modifica la capacidad de CPU de los nodos
+  """
   info('****************************\n')
-  info('*** Update CPUs ***\n')
+  info('*** Modificando CPUs ***\n')
   os.system("sudo docker update --cpuset-cpus='"+",".join(str(e) for e in list(range(numCoresD1)))+"' mn.d1")
   os.system("sudo docker update --cpuset-cpus='"+",".join(str(e) for e in list(range(numCoresD1, numCoresD1+numCoresD2)))+"' mn.d2")
 
 def AddSurgery(numSurgeries):
   """
-  Function that emulates the traffic of remote surgery
+  Función que emula el tráfico de cirugía remota
   """
   info('****************************\n')
-  info('*** Add Remote Surgery traffic ***\n')
+  info('*** Agregando tráfico de cirugía remota ***\n')
   ports = 10001
   for num in range(numSurgeries):
-    info('*** Add one\n')
+    info('*** Agregando Cirugía Remota\n')
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports))+' -C 3 -c 512 -T TCP -t 10000 -x receiver.log &')
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+1))+' -C 10000 -c 20000 -T UDP -t 10000 -x receiver.log &')
     os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+2))+' -C 49 -c 512 -T TCP -t 10000 -x receiver.log &')
@@ -68,10 +67,10 @@ def AddSurgery(numSurgeries):
 
 def obtainCPUMEM(numCoresD1,numCoresD2):
   """
-  Function that obtains CPU and Memory metrics
+  Función que obtiene métricas de CPU y Memoria
   """
   info('****************************\n')
-  info('*** Read Data ***\n')
+  info('*** Leyendo Datos ***\n')
   #CPU d1
   cmdCPUd1="sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' mn.d1 | grep -v 'CPU' | awk '{print $2}'| sed 's/.$//'"
   psCPUd1=subprocess.Popen(cmdCPUd1,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -99,7 +98,11 @@ def obtainCPUMEM(numCoresD1,numCoresD2):
   return arrayCPU
 
 def ObtainLatency():
-  #Latency of tests
+  """
+  Función que obtiene latencia en ms
+  """
+  info('****************************\n')
+  info('*** Obteniendo latencia ***\n')
   latencytests="sudo docker exec -t mn.d2 ./ITGDec receiver.log | tail -n 10 | awk 'NR==1{print $4}'"
   pslatencytests=subprocess.Popen(latencytests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   outputLatencytests=pslatencytests.communicate()[0].decode('utf-8')
@@ -108,24 +111,23 @@ def ObtainLatency():
 
 def ShutDown():
   """
-  Function that turns off the topology
+  Función que apaga la topología
   """
   info('****************************\n')
-  info('*** Shutdown Topology ***\n')
+  info('*** Apagando topologia ***\n')
   os.system("sudo mn -c")
 
-""" if __name__ == "__main__":
+if __name__ == "__main__":
   numCoresD1 = 2
   numCoresD2 = 2
   latency=[]
   StartTopology()
-  UpdateCPU()
+  UpdateCPU(numCoresD1,numCoresD2)
   AddSurgery(3)
   time.sleep(5)
-  print(obtainCPUMEM())
+  print(obtainCPUMEM(numCoresD1,numCoresD2))
   time.sleep(25)
   latency.append(ObtainLatency())
-  #ShutDown()
-
   mean = statistics.mean(latency)
-  print(mean) """
+  print(mean)
+  #ShutDown()

@@ -1,6 +1,7 @@
 from gym import Env
-from main import *
+from Monitoring import *
 import math
+import datetime
 from gym.spaces import Discrete, Box #Espacio discreto y espacio caja
 import numpy as np
 import random
@@ -15,48 +16,61 @@ from rl.agents import DQNAgent
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
 
-import itertools
-import subprocess
-
-Res_cpu = 100 #x10^-2
-Res_me = 4000000000
-eta = -1 #η
-theta = 1 #θ
-#nu_cpu = 0.2 #v
-nu_cpu = 5 #v
-NumCoresD1=4
-NumCoresD2=1
-
-
+# Numero de cirugias remotas simultaneas
+numRemoteSurgeries = 3
+# Numero de repeticiones
+numRepeats=3
+# Numero maximo de unidades de CPU (10^-1)
+resCPU = 100
+# Numero maximo de unidades de memoria
+resME = 4000000000
+# η
+eta = -1
+# θ
+theta = 1
+# v
+#nu_cpu = 0.2
+nu_cpu = 5
+# Numero inicial de unidades de CPU en el nodo 1 (sender)
+numCoresD1=4
+# Numero inicial de unidades de CPU en el nodo 2 (receiver)
+numCoresD2=1
+# Numero de varibles de estado
 estados = [[],[],[],[]]
+# Numero de pasos para tomar la desición
 pasos = 100
 pasosList = list(range(0, pasos))
-train_steps = 100000
-action_space_size = 21
+# Numero de pasos de entrenamiento
+trainSteps = 100000
+# Tamaño del espacio de acciones
+actionSpaceSize = 21
 
 # Define el entorno
 class NetworkEnv(Env):
+    # Condiciones iniciales
     def __init__(self):
-        # Acciones disponibles; subir, bajar, mantener
-        self.action_space = Discrete(action_space_size)
-        # Arreglo porcentaje de recursos asignados y usados
-        self.observation_space = Box(low=0, high=Res_cpu, shape=(1,5))
+        # Acciones disponibles;
+        self.action_space = Discrete(actionSpaceSize)
+        # Arreglo de recursos asignados y usados
+        self.observation_space = Box(low=0, high=resCPU, shape=(1,5))
         # Establece los recursos asignados y usados
         self.state = [0,0,0,0,0]
         # Duracion
         self.length = pasos
-        self.numCoresD1=NumCoresD1
-        self.numCoresD2=NumCoresD2
-        self.latency=[]
-        self.repeticiones=0
-        self.NumRepeats = 3
+        # Numero Cores D1
+        self.numCoresD1 = numCoresD1
+        # Numero Cores D2
+        self.numCoresD2 = numCoresD2
+        # Arreglo latencia obtenida
+        self.latency = []
 
+    # Paso a seguir
     def step(self, action):
         # Modifica la accion a tomar en positivo y negativo
         take_action = action - 10
         # Aplica la acción
         self.state[0] += take_action
-        #Aplica random al state [2]
+        # Aplica ruido
         """ self.state[2] += random.randint(-10,10)
         if(self.state[2]<=0):
             self.state[2] = 1  """
@@ -64,47 +78,30 @@ class NetworkEnv(Env):
         self.length -= 1
 
         # Calcula la recompensa
-        if(self.state[0] >= Res_cpu or self.state[0] <= 0):
+        if(self.state[0] >= resCPU or self.state[0] <= 0):
+            # Calcula recompensa
             reward = eta*100
         elif (self.state[0] >= self.state[2] + nu_cpu):
             # Agrega violación
             self.state[4] += 0.001
-            #reward = theta*np.exp(self.state[4])
+            # Calcula recompensa
             reward = theta*((self.state[2] + nu_cpu)/self.state[0])
-            #reward = theta
         else:
             # Reinicia violación
             self.state[4] = 0.0
-            #reward = eta*(self.state[2]/self.state[0])
+            # Calcula recompensa
             #reward = eta*np.exp(self.state[4])
-            reward = eta*10
-
-        """ # Fallo total CPU
-        if self.state[0] >= Res_cpu or self.state[0] <= 0:
-            done = True """
+            reward = eta
 
         # Duracion completada
-        if sys.argv[1] == "Start":
-            if self.length <= 0:
+        if self.length <= 0:
+            # En condicciones ejecución
+            if sys.argv[1] == "Start":
+                # Reasignacion de unidades de CPU
                 self.numCoresD2 = int(math.ceil(self.state[0]/10))
-                test(states,actions)
-                self.repeticiones+=1
-                if(self.repeticiones == self.NumRepeats):
-                    done = True
-                else:
-                    self.length = pasos
-            else:
-                done = False
+            done = True
         else:
-            if self.length <= 0:
-                done = True
-            else:
-                done = False
-
-        
-
-        # Aplica ruido
-        #self.state += random.randint(-1,1)
+            done = False
 
         # Establece un marcador de posicion para la informacion
         info = {}
@@ -112,6 +109,7 @@ class NetworkEnv(Env):
         # Retorna la informacion del step
         return self.state, reward, done, info
 
+    # Graficos
     def render(self, mode="human"):
         estados[0].append(self.state[0])
         estados[1].append(self.state[1])
@@ -140,71 +138,82 @@ class NetworkEnv(Env):
             estados[3].clear()
         return
 
+    # Reaudar
     def reset(self):
         # Reinicia recursos asignados
         self.state = get_initial_state(self)
-        #self.state = [random.randint(0, 100),0,50,0,0]
 
         # Reinicia la duracion
         self.length = pasos
 
         return self.state
 
+# Obtiene el estado inicial
 def get_initial_state(self):
+    # En condicciones de ejecución
     if sys.argv[1] == "Start":
+        # Inicia la topologia
         StartTopology()
+        # Actualiza valores de CPU
         UpdateCPU(self.numCoresD1,self.numCoresD2)
-        AddSurgery(3)
+        # Agrega trafico de n cirugias remotas
+        AddSurgery(numRemoteSurgeries)
+        # Espera
         time.sleep(5)
+        # Obtiene el uso de CPU
         ur_cpu=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[1]
+        # Obtiene el uso de Memoria
         ur_me=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[2]
+        # Espera
         time.sleep(25)
+        # Obtiene la latencia
         self.latency.append(ObtainLatency())
-        np.savetxt('latency.csv',self.latency,delimiter=',')
+        # Guarda la latencia
+        np.savetxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv',self.latency,delimiter=',')
+        # Detiene la topologia
         ShutDown()
+        # Actualiza recursos asignados de CPU
         ar_cpu = self.numCoresD2*10
+        # Actualiza recursos asignados de Memoria
         ar_me = 100
-
+    #En entrenamiento y testeo
     else :
-        ur_cpu = random.randint(0,100)
-        ur_me = random.randint(0,100)
-        latency = random.randint(15,120)
-        #ar_me = random.randint(0, Res_me)
-        #ur_cpu = random.randint(0, ar_cpu)
-        #ur_me = random.randint(0, ar_me)
-
-        ar_cpu = random.randint(0,100)
-        ar_me = random.randint(0,100)
-
-        #C_cpu = data.ar_cpu / Res_cpu
-        #C_me = data.ar_me / Res_me
-        #U_cpu = data.ur_cpu / data.ar_cpu
-        #U_me = data.ur_me / data.ar_me
-        #I_cpu = data.ur_cpu / data.ar_cpu
-        #I_me = data.ur_me / data.ar_me
-
+        # Asigna valores aleatorios
+        ur_cpu = random.randint(0,resCPU)
+        ur_me = random.randint(0,resME)
+        ar_cpu = random.randint(0,resCPU)
+        ar_me = random.randint(0,resME)
+    # Inicializa violación en 0
     Violation = 0
 
     return [ar_cpu, ar_me, ur_cpu, ur_me, Violation]
 
+# Entrenamiento
 def train(states, actions):
     model = get_model(states, actions)
     model.summary()
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-    dqn.fit(env, nb_steps=train_steps, visualize=False, verbose=1)
+    dqn.fit(env, nb_steps=trainSteps, visualize=False, verbose=1)
     dqn.save_weights('dqn_weights.h5f', overwrite=True)
 
+# Testeo
 def test(states, actions):
     model = get_model(states, actions)
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
     dqn.load_weights('dqn_weights.h5f')
-    if sys.argv[1] == "Start":
-        dqn.test(env, nb_episodes=1, visualize=True)
-    else:
-        dqn.test(env, nb_episodes=10, visualize=True)
+    dqn.test(env, nb_episodes=10, visualize=True)
 
+# Ejecución
+def start(states, actions):
+    model = get_model(states, actions)
+    dqn = get_agent(model, actions)
+    dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
+    dqn.load_weights('dqn_weights.h5f')
+    dqn.test(env, nb_episodes=numRepeats, visualize=True)
+
+# Modelo de redes neuronales
 def get_model(states, actions):
     # Crea la red neuronal
     model = Sequential()
@@ -212,39 +221,33 @@ def get_model(states, actions):
     # Aplanar unidades
     model.add(Flatten(input_shape=(states)))
 
-    # Add a hidden layers with dropout
+    # Agrega capas ocultas
     model.add(Dense(24, activation="relu", input_shape=states))
     model.add(Dense(24, activation="relu"))
     #model.add(Dropout(0.5))
 
-    # Add an output layer with output units
+    # Agregar una capa de salida con unidades de salida
     model.add(Dense(actions, activation="linear"))
 
     return model
 
+# Agente
 def get_agent(model, actions):
-    #Construye una ley de probabilidad sobre los valores de q y devuelve
-    # una acción seleccionada al azar de acuerdo con esta ley.
+    # Construye una ley de probabilidad sobre los valores de q y devuelve una acción seleccionada al azar de acuerdo con esta ley.
     policy = BoltzmannQPolicy()
 
-    #Proporciona una estructura de datos rápida y eficiente en la que podemos
-    # almacenar las experiencias del agente.
+    # Proporciona una estructura de datos rápida y eficiente en la que podemos almacenar las experiencias del agente.
     memory = SequentialMemory(limit=50000, window_length=1)
 
-    #Crea el agente
-    #nb_steps_warmup: Se utilizan para reducir la tasa de aprendizaje con el
-    # fin de reducir el impacto de desviar el modelo del aprendizaje en la
-    # exposición repentina a nuevos conjuntos de datos.
-    #target_model_update: reemplaza la red con una copia nueva sin entrenar
-    # de vez en cuando
-    #enable_double_dqn: Habilita la doble dqn
+    # Crea el agente
+    # nb_steps_warmup: Se utilizan para reducir la tasa de aprendizaje con el fin de reducir el impacto de desviar el modelo del aprendizaje en la exposición repentina a nuevos conjuntos de datos.
+    # target_model_update: reemplaza la red con una copia nueva sin entrenar de vez en cuando
+    # enable_double_dqn: Habilita la doble dqn
     dqn = DQNAgent(model=model, memory=memory, policy=policy, nb_actions=actions, nb_steps_warmup=10, target_model_update=1e-2, enable_double_dqn=True)
 
     return dqn
 
 if __name__ == "__main__":
-    latency=[]
-
 
     if len(sys.argv) != 2:
         print("Es necesario colocar un argumento:")
@@ -259,8 +262,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == "Test":
             test(states, actions)
         elif sys.argv[1] == "Start":
-            test(states, actions)
+            start(states, actions)
         else:
             print("Argumento "+sys.argv[1]+" no es válido.")
             print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
-        #state_space()
