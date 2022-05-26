@@ -66,30 +66,58 @@ class NetworkEnv(Env):
     def step(self, action):
         # Modifica la accion a tomar en positivo y negativo
         take_action = action - 10
-        # Aplica la acción
-        self.state[0] += take_action
-        # Aplica ruido
-        self.state[2] += random.randint(-1,1)
-        if(self.state[2]<=0):
-            self.state[2] = 1
-        # Reduce la duracion en 1
-        self.length -= 1
 
-        # Calcula la recompensa
-        if(self.state[0] >= resources[sys.argv[1]] or self.state[0] <= 0):
-            # Calcula recompensa
-            reward = eta*100
-        elif (self.state[0] >= self.state[2] + nu_cpu):
-            # Agrega violación
-            self.state[4] += 0.001
-            # Calcula recompensa
-            reward = theta*((self.state[2] + nu_cpu)/self.state[0])
-        else:
-            # Reinicia violación
-            self.state[4] = 0.0
-            # Calcula recompensa
-            reward = eta*np.exp(self.state[4])
-            #reward = eta
+        if(sys.argv[1] == 'cpu'):
+            # Aplica la acción
+            self.state[0] += take_action
+            # Aplica ruido
+            self.state[2] += random.randint(-1,1)
+            if(self.state[2]<=0):
+                self.state[2] = 1
+            # Reduce la duracion en 1
+            self.length -= 1
+
+            # Calcula la recompensa
+            if(self.state[0] >= resources[sys.argv[1]] or self.state[0] <= 0):
+                # Calcula recompensa
+                reward = eta*100
+            elif (self.state[0] >= self.state[2] + nu_cpu):
+                # Agrega violación
+                self.state[4] += 0.001
+                # Calcula recompensa
+                reward = theta*((self.state[2] + nu_cpu)/self.state[0])
+            else:
+                # Reinicia violación
+                self.state[4] = 0.0
+                # Calcula recompensa
+                reward = eta*np.exp(self.state[4])
+                #reward = eta
+
+        elif(sys.argv[1] == 'mem'):
+            # Aplica la acción
+            self.state[1] += take_action
+            # Aplica ruido
+            self.state[3] += random.randint(-1,1)
+            if(self.state[3]<=0):
+                self.state[3] = 1
+            # Reduce la duracion en 1
+            self.length -= 1
+
+            # Calcula la recompensa
+            if(self.state[1] >= resources[sys.argv[1]] or self.state[1] <= 0):
+                # Calcula recompensa
+                reward = eta*100
+            elif (self.state[1] >= self.state[3] + nu_cpu):
+                # Agrega violación
+                self.state[4] += 0.001
+                # Calcula recompensa
+                reward = theta*((self.state[3] + nu_cpu)/self.state[0])
+            else:
+                # Reinicia violación
+                self.state[4] = 0.0
+                # Calcula recompensa
+                reward = eta*np.exp(self.state[4])
+                #reward = eta
 
         # Duracion completada
         if self.length <= 0:
