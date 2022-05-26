@@ -13,17 +13,15 @@ from tensorflow.keras.layers import Dense, Flatten, Dropout
 from tensorflow.keras.optimizers import Adam
 
 from rl.agents import DQNAgent
-from rl.policy import BoltzmannQPolicy
+from rl.policy import MaxBoltzmannQPolicy
 from rl.memory import SequentialMemory
 
 # Numero de cirugias remotas simultaneas
 numRemoteSurgeries = 3
 # Numero de repeticiones
 numRepeats=3
-# Numero maximo de unidades de CPU (10^-1)
-resCPU = 100
-# Numero maximo de unidades de memoria
-resME = 4000000000
+# Numero maximo de unidades de CPU (10^-1) y de memoria (10^8)
+resources = {'cpu': 100, 'mem': 40}
 # η
 eta = -1
 # θ
@@ -52,7 +50,7 @@ class NetworkEnv(Env):
         # Acciones disponibles;
         self.action_space = Discrete(actionSpaceSize)
         # Arreglo de recursos asignados y usados
-        self.observation_space = Box(low=0, high=resCPU, shape=(1,5))
+        self.observation_space = Box(low=0, high=resources[sys.argv[1]], shape=(1,5))
         # Establece los recursos asignados y usados
         self.state = [0,0,0,0,0]
         # Duracion
@@ -71,14 +69,14 @@ class NetworkEnv(Env):
         # Aplica la acción
         self.state[0] += take_action
         # Aplica ruido
-        """ self.state[2] += random.randint(-10,10)
+        self.state[2] += random.randint(-1,1)
         if(self.state[2]<=0):
-            self.state[2] = 1  """
+            self.state[2] = 1
         # Reduce la duracion en 1
         self.length -= 1
 
         # Calcula la recompensa
-        if(self.state[0] >= resCPU or self.state[0] <= 0):
+        if(self.state[0] >= resources[sys.argv[1]] or self.state[0] <= 0):
             # Calcula recompensa
             reward = eta*100
         elif (self.state[0] >= self.state[2] + nu_cpu):
@@ -90,8 +88,8 @@ class NetworkEnv(Env):
             # Reinicia violación
             self.state[4] = 0.0
             # Calcula recompensa
-            #reward = eta*np.exp(self.state[4])
-            reward = eta
+            reward = eta*np.exp(self.state[4])
+            #reward = eta
 
         # Duracion completada
         if self.length <= 0:
@@ -117,18 +115,15 @@ class NetworkEnv(Env):
         estados[3].append(self.state[3])
 
         if len(estados[0])==pasos:
-            ypoints_ar_cpu = np.array(estados[0])
-            ypoints_ar_me = np.array(estados[1])
-            ypoints_ur_cpu = np.array(estados[2])
-            print(ypoints_ur_cpu)
-            ypoints_ur_me = np.array(estados[3])
+            ypoints_ar = {'cpu': np.array(estados[0]), 'mem': np.array(estados[1])}
+            ypoints_ur = {'cpu': np.array(estados[2]), 'mem': np.array(estados[3])}
+            ylabels = {'cpu': "CPU [Unidades]", 'mem': "Memoria [MB]"}
             xpoints = np.array(pasosList)
-            plt.xlabel("Pasos")
-            plt.ylabel("Unidades de CPU")
-            #plt.plot(xpoints, ypoints_ar_me, color ='orange', label ='C CPU (Asignados)')
-            #plt.plot(xpoints, ypoints_ur_me, color ='g', label ='U CPU (Usados)')
-            plt.plot(xpoints, ypoints_ar_cpu, color ='r', label ='Recursos Asignados')
-            plt.plot(xpoints, ypoints_ur_cpu, color ='b', label ='Recursos Usados')
+            plt.xlabel("Episodios")
+            plt.ylabel(ylabels[sys.argv[1]])
+            plt.ylim(0, resources[sys.argv[1]])
+            plt.plot(xpoints, ypoints_ar[sys.argv[1]], color = 'r', label = 'Recursos Asignados')
+            plt.plot(xpoints, ypoints_ur[sys.argv[1]], color = 'b', label = 'Recursos Usados')
             plt.legend()
             plt.grid()
             plt.show()
@@ -179,10 +174,10 @@ def get_initial_state(self):
     #En entrenamiento y testeo
     else :
         # Asigna valores aleatorios
-        ur_cpu = random.randint(0,resCPU)
-        ur_me = random.randint(0,resME)
-        ar_cpu = random.randint(0,resCPU)
-        ar_me = random.randint(0,resME)
+        ur_cpu = random.randint(0,resources["cpu"])
+        ur_me = random.randint(0,resources["mem"])
+        ar_cpu = random.randint(0,resources["cpu"])
+        ar_me = random.randint(0,resources["mem"])
     # Inicializa violación en 0
     Violation = 0
 
@@ -195,14 +190,14 @@ def train(states, actions):
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
     dqn.fit(env, nb_steps=trainSteps, visualize=False, verbose=1)
-    dqn.save_weights('dqn_weights.h5f', overwrite=True)
+    dqn.save_weights('dqn_weights_'+sys.argv[1]+'.h5f', overwrite=True)
 
 # Testeo
 def test(states, actions):
     model = get_model(states, actions)
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-    dqn.load_weights('dqn_weights.h5f')
+    dqn.load_weights('dqn_weights_'+sys.argv[1]+'.h5f')
     dqn.test(env, nb_episodes=10, visualize=True)
 
 # Ejecución
@@ -210,7 +205,7 @@ def start(states, actions):
     model = get_model(states, actions)
     dqn = get_agent(model, actions)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-    dqn.load_weights('dqn_weights.h5f')
+    dqn.load_weights('dqn_weights_'+sys.argv[1]+'.h5f')
     dqn.test(env, nb_episodes=numRepeats, visualize=True)
 
 # Modelo de redes neuronales
@@ -233,8 +228,12 @@ def get_model(states, actions):
 
 # Agente
 def get_agent(model, actions):
-    # Construye una ley de probabilidad sobre los valores de q y devuelve una acción seleccionada al azar de acuerdo con esta ley.
-    policy = BoltzmannQPolicy()
+    # Una combinación de epsilon-greedy y Boltzman q-policy.
+    # Epsilon-greedy implementa la política codiciosa de epsilon:
+    #  - realiza una acción aleatoria con probabilidad épsilon
+    #  - toma la mejor acción actual con prob (1 - epsilon)
+    # Boltzman q-policy construye una ley de probabilidad sobre los valores de q y devuelve una acción seleccionada al azar de acuerdo con esta ley.
+    policy = MaxBoltzmannQPolicy(eps=0.1)
 
     # Proporciona una estructura de datos rápida y eficiente en la que podemos almacenar las experiencias del agente.
     memory = SequentialMemory(limit=50000, window_length=1)
@@ -249,20 +248,25 @@ def get_agent(model, actions):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 2:
-        print("Es necesario colocar un argumento:")
+    if len(sys.argv) != 3:
+        print("Es necesario indicar los argumento:")
+        print("CPU: cpu, Memoria: mem")
         print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
     else:
-        env = NetworkEnv()
-        env.reset()
-        states = env.observation_space.shape
-        actions = env.action_space.n
-        if sys.argv[1] == "Train":
-            train(states, actions)
-        elif sys.argv[1] == "Test":
-            test(states, actions)
-        elif sys.argv[1] == "Start":
-            start(states, actions)
-        else:
+        if not (sys.argv[1] == "cpu" or sys.argv[1] == "mem"):
             print("Argumento "+sys.argv[1]+" no es válido.")
+            print("CPU: cpu, Memoria: mem")
+        elif not (sys.argv[2] == "Train" or sys.argv[2] == "Test" or sys.argv[2] == "Start"):
+            print("Argumento "+sys.argv[2]+" no es válido.")
             print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
+        else:
+            env = NetworkEnv()
+            env.reset()
+            states = env.observation_space.shape
+            actions = env.action_space.n
+            if sys.argv[2] == "Train":
+                train(states, actions)
+            elif sys.argv[2] == "Test":
+                test(states, actions)
+            elif sys.argv[2] == "Start":
+                start(states, actions)
