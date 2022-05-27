@@ -219,6 +219,7 @@ class NetworkEnv(Env):
                 plt.ylim(0, resources[sys.argv[1]])
                 plt.plot(range(len(yUsageResources)), yUsageResources, color = 'b', label = 'Recursos Usados')
                 plt.plot(range(len(yAsignedResources)), yAsignedResources, color = 'r', label = 'Recursos Asignados')
+                plt.legend()
                 plt.grid()
                 plt.show()
         return

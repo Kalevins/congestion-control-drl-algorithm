@@ -59,11 +59,11 @@ def AddSurgery(numSurgeries):
   ports = 10001
   for num in range(numSurgeries):
     info('*** Agregando Cirugía Remota\n')
-    os.system('sudo docker exec -t mn.d1 ./ITGSend/ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports))+' -C 3 -c 512 -T TCP -t 10000 -x receiver.log &')
-    os.system('sudo docker exec -t mn.d1 ./ITGSend/ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+1))+' -C 10000 -c 20000 -T UDP -t 10000 -x receiver.log &')
-    os.system('sudo docker exec -t mn.d1 ./ITGSend/ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+2))+' -C 49 -c 512 -T TCP -t 10000 -x receiver.log &')
-    os.system('sudo docker exec -t mn.d1 ./ITGSend/ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+3))+' -C 375 -c 512 -T TCP -t 10000 -x receiver.log &')
-    os.system('sudo docker exec -t mn.d1 ./ITGSend/ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+4))+' -C 32 -c 1568 -T UDP -t 10000 -x receiver.log &')
+    os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports))+' -C 3 -c 512 -T TCP -t 10000 -x receiver.log &')
+    os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+1))+' -C 10000 -c 20000 -T UDP -t 10000 -x receiver.log &')
+    os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+2))+' -C 49 -c 512 -T TCP -t 10000 -x receiver.log &')
+    os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+3))+' -C 375 -c 512 -T TCP -t 10000 -x receiver.log &')
+    os.system('sudo docker exec -t mn.d1 ./ITGSend -a 10.0.0.252 -rp '+str((num*5)+(ports+4))+' -C 32 -c 1568 -T UDP -t 10000 -x receiver.log &')
 
 def obtainCPUMEM(numCoresD1,numCoresD2):
   """
@@ -103,7 +103,7 @@ def ObtainLatency():
   """
   info('****************************\n')
   info('*** Obteniendo latencia ***\n')
-  latencytests="sudo docker exec -t mn.d2 ./ITGDec/ITGDec receiver.log | tail -n 10 | awk 'NR==1{print $4}'"
+  latencytests="sudo docker exec -t mn.d2 ./ITGDec receiver.log | tail -n 10 | awk 'NR==1{print $4}'"
   pslatencytests=subprocess.Popen(latencytests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   outputLatencytests=pslatencytests.communicate()[0].decode('utf-8')
   lat=float(outputLatencytests)*1000
