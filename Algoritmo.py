@@ -20,7 +20,7 @@ from rl.memory import SequentialMemory
 # Numero de cirugias remotas simultaneas
 numRemoteSurgeries = 3
 # Numero de repeticiones
-numRepeats=3
+numRepeats=10
 # Numero maximo de unidades de CPU (10^-1) y de memoria (10^8)
 resources = {'cpu': 100, 'mem': 40}
 # η
@@ -173,7 +173,8 @@ class NetworkEnv(Env):
                 # Latencia
                 plt.xlabel("Episodios")
                 plt.ylabel("Latencia [ms]")
-                data = np.genfromtxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                plt.ylim(0, 0.15)
+                data = np.genfromtxt('results/latency_'+resources[sys.argv[1]]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
                 x = range(len(data))
                 plt.plot(x, data)
                 plt.grid()
@@ -211,7 +212,7 @@ def get_initial_state(self):
         # Obtiene la latencia
         self.latency.append(ObtainLatency())
         # Guarda la latencia
-        np.savetxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
+        np.savetxt('results/latency_'+resources[sys.argv[1]]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
         # Detiene la topologia
         ShutDown()
         # Actualiza recursos asignados de CPU
