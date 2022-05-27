@@ -7,6 +7,7 @@ import numpy as np
 import random
 import sys
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Dropout
@@ -42,6 +43,8 @@ pasosList = list(range(0, pasos))
 trainSteps = 100000
 # Tamaño del espacio de acciones
 actionSpaceSize = 21
+# Habilita el ruido en los recursos usados
+isNoise = False
 
 # Define el entorno
 class NetworkEnv(Env):
@@ -71,9 +74,12 @@ class NetworkEnv(Env):
             # Aplica la acción
             self.state[0] += take_action
             # Aplica ruido
-            self.state[2] += random.randint(-1,1)
-            if(self.state[2]<=0):
-                self.state[2] = 1
+            if(isNoise):
+                self.state[2] += random.randint(-1,1)
+                if(self.state[2]<=0):
+                    self.state[2] = 1
+                if(self.state[2]>=resources[sys.argv[1]]):
+                    self.state[2] = resources[sys.argv[1]]
             # Reduce la duracion en 1
             self.length -= 1
 
@@ -97,9 +103,12 @@ class NetworkEnv(Env):
             # Aplica la acción
             self.state[1] += take_action
             # Aplica ruido
-            self.state[3] += random.randint(-1,1)
-            if(self.state[3]<=0):
-                self.state[3] = 1
+            if(isNoise):
+                self.state[3] += random.randint(-1,1)
+                if(self.state[3]<=0):
+                    self.state[3] = 1
+                if(self.state[3]>=resources[sys.argv[1]]):
+                    self.state[3] = resources[sys.argv[1]]
             # Reduce la duracion en 1
             self.length -= 1
 
@@ -122,7 +131,7 @@ class NetworkEnv(Env):
         # Duracion completada
         if self.length <= 0:
             # En condicciones ejecución
-            if sys.argv[1] == "Start":
+            if sys.argv[2] == "Start":
                 # Reasignacion de unidades de CPU
                 self.numCoresD2 = int(math.ceil(self.state[0]/10))
             done = True
@@ -147,7 +156,7 @@ class NetworkEnv(Env):
             ypoints_ur = {'cpu': np.array(estados[2]), 'mem': np.array(estados[3])}
             ylabels = {'cpu': "CPU [Unidades]", 'mem': "Memoria [MB]"}
             xpoints = np.array(pasosList)
-            plt.xlabel("Episodios")
+            plt.xlabel("Pasos")
             plt.ylabel(ylabels[sys.argv[1]])
             plt.ylim(0, resources[sys.argv[1]])
             plt.plot(xpoints, ypoints_ar[sys.argv[1]], color = 'r', label = 'Recursos Asignados')
@@ -159,6 +168,16 @@ class NetworkEnv(Env):
             estados[1].clear()
             estados[2].clear()
             estados[3].clear()
+
+            if sys.argv[2] == "Start":
+                # Latencia
+                plt.xlabel("Episodios")
+                plt.ylabel("Latencia [ms]")
+                data = np.genfromtxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                x = range(len(data))
+                plt.plot(x, data)
+                plt.grid()
+                plt.show()
         return
 
     # Reaudar
@@ -174,7 +193,7 @@ class NetworkEnv(Env):
 # Obtiene el estado inicial
 def get_initial_state(self):
     # En condicciones de ejecución
-    if sys.argv[1] == "Start":
+    if sys.argv[2] == "Start":
         # Inicia la topologia
         StartTopology()
         # Actualiza valores de CPU
@@ -192,7 +211,7 @@ def get_initial_state(self):
         # Obtiene la latencia
         self.latency.append(ObtainLatency())
         # Guarda la latencia
-        np.savetxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv',self.latency,delimiter=',')
+        np.savetxt('results/latency_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
         # Detiene la topologia
         ShutDown()
         # Actualiza recursos asignados de CPU
