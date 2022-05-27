@@ -202,14 +202,14 @@ class NetworkEnv(Env):
                 # Grafica paquetes perdidos
                 plt.xlabel("Episodios")
                 plt.ylabel("Paquetes perdidos [%]")
-                plt.ylim(0, 0.15)
+                plt.ylim(0, 2)
                 plt.plot(range(len(yPacketLost)), yPacketLost)
                 plt.grid()
                 plt.show()
                 # Grafica jitter
                 plt.xlabel("Episodios")
-                plt.ylabel("Jitter")
-                plt.ylim(0, 10)
+                plt.ylabel("Jitter [ms]")
+                plt.ylim(0, 1)
                 plt.plot(range(len(yJitter)), yJitter)
                 plt.grid()
                 plt.show()
@@ -261,9 +261,9 @@ def get_initial_state(self):
         # Obtiene la latencia
         self.arrayLatency.append(ObtainLatency())
         # Obtiene los paquetes perdidos
-        self.arrayPacketLost.append(ObtainLatency())
+        self.arrayPacketLost.append(ObtainPacketLoss())
         # Obtiene el jitter
-        self.arrayJitter.append(ObtainLatency())
+        self.arrayJitter.append(ObtainJitter())
         # Para CPU
         if(sys.argv[1] == 'cpu'):
             # Obtiene los recursos usados

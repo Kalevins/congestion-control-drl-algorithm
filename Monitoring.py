@@ -109,6 +109,30 @@ def ObtainLatency():
   lat=float(outputLatencytests)*1000
   return lat
 
+def ObtainPacketLoss():
+  """
+  Función que obtiene porcentaje de packet loss
+  """
+  info('****************************\n')
+  info('*** Obteniendo porcentaje de packet loss ***\n')
+  packetlosstests="sudo docker exec -t mn.d2 ./ITGDec receiver.log | tail -n 4 | awk 'NR==1{print $5}' | sed 's/[)(]//g'"
+  pspacketlosstests=subprocess.Popen(packetlosstests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  outputPacketLosstests=pspacketlosstests.communicate()[0].decode('utf-8')
+  ploss=float(outputPacketLosstests)
+  return ploss
+
+def ObtainJitter():
+  """
+  Función que obtiene porcentaje de packet loss
+  """
+  info('****************************\n')
+  info('*** Obteniendo porcentaje de packet loss ***\n')
+  Jittertests="sudo docker exec -t mn.d2 ./ITGDec receiver.log | tail -n 9 | awk 'NR==1{print $4}'"
+  psJittertests=subprocess.Popen(Jittertests,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  outputJittertests=psJittertests.communicate()[0].decode('utf-8')
+  jitter=float(outputJittertests)*1000
+  return jitter
+
 def ShutDown():
   """
   Función que apaga la topología
