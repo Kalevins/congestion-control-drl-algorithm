@@ -63,7 +63,15 @@ class NetworkEnv(Env):
         # Numero Cores D2
         self.numCoresD2 = numCoresD2
         # Arreglo latencia obtenida
-        self.latency = []
+        self.arrayLatency = []
+        # Arreglo paquetes perdidos obtenidos
+        self.arrayPacketLost = []
+        # Arreglo jitter obtenido
+        self.arrayJitter = []
+        # Arreglo recursos usados
+        self.arrayUsageResources = []
+        # Arreglo recursos asignados
+        self.arrayAsignedResources = []
 
     # Paso a seguir
     def step(self, action):
@@ -159,7 +167,7 @@ class NetworkEnv(Env):
             # Eje y
             ypoints_ar = {'cpu': np.array(estados[0]), 'mem': np.array(estados[1])}
             ypoints_ur = {'cpu': np.array(estados[2]), 'mem': np.array(estados[3])}
-            ylabels = {'cpu': "CPU [Unidades]", 'mem': "Memoria [MB]"}
+            ylabels = {'cpu': "CPU [Deci-Unidades]", 'mem': "Memoria [MB]"}
             # Eje x
             xpoints = np.array(pasosList)
             # Grafica recursos
@@ -178,13 +186,39 @@ class NetworkEnv(Env):
             estados[3].clear()
             # En condicciones ejecución
             if sys.argv[2] == "Start":
+                data = np.genfromtxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                yLatency = data[0]
+                yPacketLost = data[1]
+                yJitter = data[2]
+                yUsageResources = data[3]
+                yAsignedResources = data[4]
                 # Grafica latencia
                 plt.xlabel("Episodios")
                 plt.ylabel("Latencia [ms]")
                 plt.ylim(0, 0.15)
-                data = np.genfromtxt('results/latency_'+sys.argv[1]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
-                x = range(len(data))
-                plt.plot(x, data)
+                plt.plot(range(len(yLatency)), yLatency)
+                plt.grid()
+                plt.show()
+                # Grafica paquetes perdidos
+                plt.xlabel("Episodios")
+                plt.ylabel("Paquetes perdidos [%]")
+                plt.ylim(0, 0.15)
+                plt.plot(range(len(yPacketLost)), yPacketLost)
+                plt.grid()
+                plt.show()
+                # Grafica jitter
+                plt.xlabel("Episodios")
+                plt.ylabel("Jitter")
+                plt.ylim(0, 10)
+                plt.plot(range(len(yJitter)), yJitter)
+                plt.grid()
+                plt.show()
+                # Grafica recursos
+                plt.xlabel("Episodios")
+                plt.ylabel(ylabels[sys.argv[1]])
+                plt.ylim(0, resources[sys.argv[1]])
+                plt.plot(range(len(yUsageResources)), yUsageResources, color = 'b', label = 'Recursos Usados')
+                plt.plot(range(len(yAsignedResources)), yAsignedResources, color = 'r', label = 'Recursos Asignados')
                 plt.grid()
                 plt.show()
         return
@@ -211,22 +245,40 @@ def get_initial_state(self):
         AddSurgery(numRemoteSurgeries)
         # Espera
         time.sleep(5)
-        # Obtiene el uso de CPU
-        ur_cpu=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[1]
-        # Obtiene el uso de Memoria
-        ur_me=obtainCPUMEM(self.numCoresD1,self.numCoresD2)[2]
-        # Espera
-        time.sleep(25)
-        # Obtiene la latencia
-        self.latency.append(ObtainLatency())
-        # Guarda la latencia
-        np.savetxt('results/latency_'+sys.argv[1]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
-        # Detiene la topologia
-        ShutDown()
+        # Obtiene el uso de CPU y Memoria
+        obteinResoureces=obtainCPUMEM(self.numCoresD1,self.numCoresD2)
+        # Actualiza recursos usados de CPU
+        ur_cpu=obteinResoureces[1]
+        # Actualiza recursos usados de Memoria
+        ur_me=obteinResoureces[3]
         # Actualiza recursos asignados de CPU
         ar_cpu = self.numCoresD2*10
         # Actualiza recursos asignados de Memoria
-        ar_me = 100
+        ar_me = self.state[1]
+        # Espera
+        time.sleep(25)
+        # Obtiene la latencia
+        self.arrayLatency.append(ObtainLatency())
+        # Obtiene los paquetes perdidos
+        self.arrayPacketLost.append(ObtainLatency())
+        # Obtiene el jitter
+        self.arrayJitter.append(ObtainLatency())
+        # Para CPU
+        if(sys.argv[1] == 'cpu'):
+            # Obtiene los recursos usados
+            self.arrayUsageResources.append(ur_cpu)
+            # Obtiene los recursos asignados
+            self.arrayAsignedResources.append(ar_cpu)
+        # Para Memoria
+        elif(sys.argv[1] == 'mem'):
+            # Obtiene los recursos usados
+            self.arrayUsageResources.append(ur_me)
+            # Obtiene los recursos asignados
+            self.arrayAsignedResources.append(ar_me)
+        # Guarda resultados
+        np.savetxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', (self.arrayLatency, self.arrayPacketLost, self.arrayJitter, self.arrayUsageResources, self.arrayAsignedResources), delimiter=',')
+        # Detiene la topologia
+        ShutDown()
     #En entrenamiento y testeo
     else :
         # Asigna valores aleatorios
