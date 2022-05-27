@@ -7,7 +7,6 @@ import numpy as np
 import random
 import sys
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Dropout
@@ -16,6 +15,7 @@ from tensorflow.keras.optimizers import Adam
 from rl.agents import DQNAgent
 from rl.policy import MaxBoltzmannQPolicy
 from rl.memory import SequentialMemory
+
 
 # Numero de cirugias remotas simultaneas
 numRemoteSurgeries = 3
@@ -34,8 +34,6 @@ nu_cpu = 5
 numCoresD1=4
 # Numero inicial de unidades de CPU en el nodo 2 (receiver)
 numCoresD2=1
-# Numero de varibles de estado
-estados = [[],[],[],[]]
 # Numero de pasos para tomar la desición
 pasos = 100
 pasosList = list(range(0, pasos))
@@ -45,6 +43,8 @@ trainSteps = 100000
 actionSpaceSize = 21
 # Habilita el ruido en los recursos usados
 isNoise = False
+# Numero de varibles de estado para graficas
+estados = [[],[],[],[]]
 
 # Define el entorno
 class NetworkEnv(Env):
@@ -146,16 +146,23 @@ class NetworkEnv(Env):
 
     # Graficos
     def render(self, mode="human"):
+        # Guarda el ar_cpu
         estados[0].append(self.state[0])
+        # Guarda el ar_me
         estados[1].append(self.state[1])
+        # Guarda el ur_cpu
         estados[2].append(self.state[2])
+        # Guarda el ur_me
         estados[3].append(self.state[3])
-
+        # Finaliza el episodio
         if len(estados[0])==pasos:
+            # Eje y
             ypoints_ar = {'cpu': np.array(estados[0]), 'mem': np.array(estados[1])}
             ypoints_ur = {'cpu': np.array(estados[2]), 'mem': np.array(estados[3])}
             ylabels = {'cpu': "CPU [Unidades]", 'mem': "Memoria [MB]"}
+            # Eje x
             xpoints = np.array(pasosList)
+            # Grafica recursos
             plt.xlabel("Pasos")
             plt.ylabel(ylabels[sys.argv[1]])
             plt.ylim(0, resources[sys.argv[1]])
@@ -164,17 +171,18 @@ class NetworkEnv(Env):
             plt.legend()
             plt.grid()
             plt.show()
+            # Limpia los recursos
             estados[0].clear()
             estados[1].clear()
             estados[2].clear()
             estados[3].clear()
-
+            # En condicciones ejecución
             if sys.argv[2] == "Start":
-                # Latencia
+                # Grafica latencia
                 plt.xlabel("Episodios")
                 plt.ylabel("Latencia [ms]")
                 plt.ylim(0, 0.15)
-                data = np.genfromtxt('results/latency_'+resources[sys.argv[1]]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                data = np.genfromtxt('results/latency_'+sys.argv[1]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
                 x = range(len(data))
                 plt.plot(x, data)
                 plt.grid()
@@ -212,7 +220,7 @@ def get_initial_state(self):
         # Obtiene la latencia
         self.latency.append(ObtainLatency())
         # Guarda la latencia
-        np.savetxt('results/latency_'+resources[sys.argv[1]]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
+        np.savetxt('results/latency_'+sys.argv[1]+'_'+str(datetime.date.today())+'_'+str(numRemoteSurgeries)+'RS'+'.csv', self.latency, delimiter=',')
         # Detiene la topologia
         ShutDown()
         # Actualiza recursos asignados de CPU
@@ -233,27 +241,49 @@ def get_initial_state(self):
 
 # Entrenamiento
 def train(states, actions):
+    # Obtiene el modelo
     model = get_model(states, actions)
+    # Imprime un resumen de la red.
     model.summary()
+    # Obtiene el agente
     dqn = get_agent(model, actions)
+    # Compila el agente y los modelos subyacentes que se utilizarán para el entrenamiento y las pruebas.
+    #  - Optimizador que se usará durante el entrenamiento: Adam
+    #  - Metricas a ejecutar durante el entrenamiento: MAE
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
+    # Entrena al agente en el entorno dado.
     dqn.fit(env, nb_steps=trainSteps, visualize=False, verbose=1)
+    # Guarda los pesos del agente como un archivo HDF5
     dqn.save_weights('dqn_weights_'+sys.argv[1]+'.h5f', overwrite=True)
 
 # Testeo
 def test(states, actions):
+    # Obtiene el modelo
     model = get_model(states, actions)
+    # Obtiene el agente
     dqn = get_agent(model, actions)
+    # Compila el agente y los modelos subyacentes que se utilizarán para el entrenamiento y las pruebas.
+    #  - Optimizador que se usará durante el entrenamiento: Adam
+    #  - Metricas a ejecutar durante el entrenamiento: MAE
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
+    # Carga los pesos del agente de un archivo HDF5
     dqn.load_weights('dqn_weights_'+sys.argv[1]+'.h5f')
+    # Realiza las pruebas del agente en el entorno dado.
     dqn.test(env, nb_episodes=10, visualize=True)
 
 # Ejecución
 def start(states, actions):
+    # Obtiene el modelo
     model = get_model(states, actions)
+    # Obtiene el agente
     dqn = get_agent(model, actions)
+    # Compila el agente y los modelos subyacentes que se utilizarán para el entrenamiento y las pruebas.
+    #  - Optimizador que se usará durante el entrenamiento: Adam
+    #  - Metricas a ejecutar durante el entrenamiento: MAE
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
+    # Carga los pesos del agente de un archivo HDF5
     dqn.load_weights('dqn_weights_'+sys.argv[1]+'.h5f')
+    # Realiza las pruebas del agente en el entorno dado.
     dqn.test(env, nb_episodes=numRepeats, visualize=True)
 
 # Modelo de redes neuronales
@@ -276,8 +306,8 @@ def get_model(states, actions):
 
 # Agente
 def get_agent(model, actions):
-    # Una combinación de epsilon-greedy y Boltzman q-policy.
-    # Epsilon-greedy implementa la política codiciosa de epsilon:
+    # Una combinación de épsilon-greedy y Boltzman q-policy.
+    # Epsilon-greedy implementa la política codiciosa de épsilon:
     #  - realiza una acción aleatoria con probabilidad épsilon
     #  - toma la mejor acción actual con prob (1 - epsilon)
     # Boltzman q-policy construye una ley de probabilidad sobre los valores de q y devuelve una acción seleccionada al azar de acuerdo con esta ley.
@@ -298,8 +328,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) != 3:
         print("Es necesario indicar los argumento:")
-        print("CPU: cpu, Memoria: mem")
-        print("Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
+        print("1 - CPU: cpu, Memoria: mem")
+        print("2 - Entrenamiento: Train, Ensayos: Test, Ejecutar: Start")
     else:
         if not (sys.argv[1] == "cpu" or sys.argv[1] == "mem"):
             print("Argumento "+sys.argv[1]+" no es válido.")
