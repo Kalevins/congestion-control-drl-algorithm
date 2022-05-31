@@ -1,7 +1,6 @@
 from gym import Env
 from Monitoring import *
 import math
-import datetime
 from gym.spaces import Discrete, Box #Espacio discreto y espacio caja
 import numpy as np
 import random
@@ -97,12 +96,12 @@ class NetworkEnv(Env):
                 reward = eta*100
             elif (self.state[0] >= self.state[2] + nu_cpu):
                 # Agrega violación
-                self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
                 reward = theta*((self.state[2] + nu_cpu)/self.state[0])
             else:
                 # Reinicia violación
-                self.state[4] = 0.0
+                self.state[4] += 0.001
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
                 #reward = eta
@@ -126,12 +125,12 @@ class NetworkEnv(Env):
                 reward = eta*100
             elif (self.state[1] >= self.state[3] + nu_cpu):
                 # Agrega violación
-                self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
-                reward = theta*((self.state[3] + nu_cpu)/self.state[0])
+                reward = theta*((self.state[3] + nu_cpu)/self.state[1])
             else:
                 # Reinicia violación
-                self.state[4] = 0.0
+                self.state[4] += 0.001
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
                 #reward = eta
@@ -186,7 +185,7 @@ class NetworkEnv(Env):
             estados[3].clear()
             # En condicciones ejecución
             if sys.argv[2] == "Start":
-                data = np.genfromtxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                data = np.genfromtxt('results/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
                 yLatency = data[0]
                 yPacketLost = data[1]
                 yJitter = data[2]
@@ -277,7 +276,7 @@ def get_initial_state(self):
             # Obtiene los recursos asignados
             self.arrayAsignedResources.append(ar_me)
         # Guarda resultados
-        np.savetxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', (self.arrayLatency, self.arrayPacketLost, self.arrayJitter, self.arrayUsageResources, self.arrayAsignedResources), delimiter=',')
+        np.savetxt('results/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', (self.arrayLatency, self.arrayPacketLost, self.arrayJitter, self.arrayUsageResources, self.arrayAsignedResources), delimiter=',')
         # Detiene la topologia
         ShutDown()
     #En entrenamiento y testeo
