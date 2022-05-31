@@ -75,7 +75,7 @@ plt.show()
 ylabels = {'cpu': "CPU [Deci-Unidades]", 'mem': "Memoria [MB]"}
 plt.xlabel("Episodios")
 plt.ylabel(ylabels[resources])
-plt.ylim(0, 100)
+plt.ylim(0, 80)
 plt.plot(range(len(yUsageResources1)), yUsageResources1, color = 'red', linestyle = 'dashed', label = '1 Cirugía Remota')
 plt.plot(range(len(yUsageResources2)), yUsageResources2, color = 'blue', linestyle = 'dashed', label = '2 Cirugías Remotas')
 plt.plot(range(len(yUsageResources3)), yUsageResources3, color = 'green', linestyle = 'dashed', label = '3 Cirugías Remotas')
@@ -94,5 +94,5 @@ lineUsed = Line2D([0], [0], label='Recursos Usados', color='black', linestyle = 
 
 plt.legend(handles=[lineAsigned, lineUsed, redPoint, bluePoint, greenPoint, orangePoint])
 plt.grid()
-plt.savefig('graphs/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+resources+'_resources'+'.pdf')
+plt.savefig('graphs/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+resources+'_resources'+'.pdf', orientation='landscape')
 plt.show()

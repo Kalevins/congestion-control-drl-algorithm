@@ -21,7 +21,7 @@ numRemoteSurgeries = 3
 # Numero de repeticiones
 numRepeats=10
 # Numero maximo de unidades de CPU (10^-1) y de memoria (10^8)
-resources = {'cpu': 100, 'mem': 40}
+resources = {'cpu': 80, 'mem': 40}
 # η
 eta = -1
 # θ
@@ -101,7 +101,8 @@ class NetworkEnv(Env):
                 reward = theta*((self.state[2] + nu_cpu)/self.state[0])
             else:
                 # Reinicia violación
-                self.state[4] += 0.001
+                #self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
                 #reward = eta
@@ -130,7 +131,8 @@ class NetworkEnv(Env):
                 reward = theta*((self.state[3] + nu_cpu)/self.state[1])
             else:
                 # Reinicia violación
-                self.state[4] += 0.001
+                #self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
                 #reward = eta
