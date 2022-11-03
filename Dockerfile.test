@@ -1,0 +1,23 @@
+# parent image
+FROM ubuntu:trusty
+
+# install needed packages
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    iputils-ping \
+    iproute2 \
+    build-essential \
+    telnet telnetd \
+    iperf \
+    iperf3 \
+    unzip \
+    g++ \
+    wget 
+RUN apt-get install -y make 
+RUN wget http://traffic.comics.unina.it/software/ITG/codice/D-ITG-2.8.1-r1023-src.zip -P /home
+RUN unzip /home/D-ITG-2.8.1-r1023-src.zip -d /home
+WORKDIR /home/D-ITG-2.8.1-r1023/src
+RUN make
+
+# run bash interpreter
+CMD /bin/bash
