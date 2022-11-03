@@ -1,7 +1,6 @@
 from gym import Env
 from Monitoring import *
 import math
-import datetime
 from gym.spaces import Discrete, Box #Espacio discreto y espacio caja
 import numpy as np
 import random
@@ -22,7 +21,7 @@ numRemoteSurgeries = 3
 # Numero de repeticiones
 numRepeats=10
 # Numero maximo de unidades de CPU (10^-1) y de memoria (10^8)
-resources = {'cpu': 100, 'mem': 40}
+resources = {'cpu': 80, 'mem': 40}
 # η
 eta = -1
 # θ
@@ -97,11 +96,12 @@ class NetworkEnv(Env):
                 reward = eta*100
             elif (self.state[0] >= self.state[2] + nu_cpu):
                 # Agrega violación
-                self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
                 reward = theta*((self.state[2] + nu_cpu)/self.state[0])
             else:
                 # Reinicia violación
+                #self.state[4] += 0.001
                 self.state[4] = 0.0
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
@@ -126,11 +126,12 @@ class NetworkEnv(Env):
                 reward = eta*100
             elif (self.state[1] >= self.state[3] + nu_cpu):
                 # Agrega violación
-                self.state[4] += 0.001
+                self.state[4] = 0.0
                 # Calcula recompensa
-                reward = theta*((self.state[3] + nu_cpu)/self.state[0])
+                reward = theta*((self.state[3] + nu_cpu)/self.state[1])
             else:
                 # Reinicia violación
+                #self.state[4] += 0.001
                 self.state[4] = 0.0
                 # Calcula recompensa
                 reward = eta*np.exp(self.state[4])
@@ -186,7 +187,7 @@ class NetworkEnv(Env):
             estados[3].clear()
             # En condicciones ejecución
             if sys.argv[2] == "Start":
-                data = np.genfromtxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
+                data = np.genfromtxt('results/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', delimiter=',')
                 yLatency = data[0]
                 yPacketLost = data[1]
                 yJitter = data[2]
@@ -202,14 +203,14 @@ class NetworkEnv(Env):
                 # Grafica paquetes perdidos
                 plt.xlabel("Episodios")
                 plt.ylabel("Paquetes perdidos [%]")
-                plt.ylim(0, 0.15)
+                plt.ylim(0, 2)
                 plt.plot(range(len(yPacketLost)), yPacketLost)
                 plt.grid()
                 plt.show()
                 # Grafica jitter
                 plt.xlabel("Episodios")
-                plt.ylabel("Jitter")
-                plt.ylim(0, 10)
+                plt.ylabel("Jitter [ms]")
+                plt.ylim(0, 1)
                 plt.plot(range(len(yJitter)), yJitter)
                 plt.grid()
                 plt.show()
@@ -219,6 +220,7 @@ class NetworkEnv(Env):
                 plt.ylim(0, resources[sys.argv[1]])
                 plt.plot(range(len(yUsageResources)), yUsageResources, color = 'b', label = 'Recursos Usados')
                 plt.plot(range(len(yAsignedResources)), yAsignedResources, color = 'r', label = 'Recursos Asignados')
+                plt.legend()
                 plt.grid()
                 plt.show()
         return
@@ -260,9 +262,9 @@ def get_initial_state(self):
         # Obtiene la latencia
         self.arrayLatency.append(ObtainLatency())
         # Obtiene los paquetes perdidos
-        self.arrayPacketLost.append(ObtainLatency())
+        self.arrayPacketLost.append(ObtainPacketLoss())
         # Obtiene el jitter
-        self.arrayJitter.append(ObtainLatency())
+        self.arrayJitter.append(ObtainJitter())
         # Para CPU
         if(sys.argv[1] == 'cpu'):
             # Obtiene los recursos usados
@@ -276,7 +278,7 @@ def get_initial_state(self):
             # Obtiene los recursos asignados
             self.arrayAsignedResources.append(ar_me)
         # Guarda resultados
-        np.savetxt('results/'+str(datetime.date.today())+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', (self.arrayLatency, self.arrayPacketLost, self.arrayJitter, self.arrayUsageResources, self.arrayAsignedResources), delimiter=',')
+        np.savetxt('results/'+str(numCoresD1)+'_'+str(numCoresD2)+'_'+sys.argv[1]+'_'+str(numRemoteSurgeries)+'RS'+'.csv', (self.arrayLatency, self.arrayPacketLost, self.arrayJitter, self.arrayUsageResources, self.arrayAsignedResources), delimiter=',')
         # Detiene la topologia
         ShutDown()
     #En entrenamiento y testeo
