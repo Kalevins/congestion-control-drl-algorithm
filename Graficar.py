@@ -89,7 +89,7 @@ redPoint = Line2D([0], [0], marker='o', color='w', label='1 Cirugía Remota', ma
 bluePoint = Line2D([0], [0], marker='o', color='w', label='2 Cirugías Remotas', markerfacecolor='blue', markersize=10)
 greenPoint = Line2D([0], [0], marker='o', color='w', label='3 Cirugías Remotas', markerfacecolor='green', markersize=10)
 orangePoint = Line2D([0], [0], marker='o', color='w', label='4 Cirugías Remotas', markerfacecolor='orange', markersize=10)
-lineAsigned = Line2D([0], [0], label='Recursos Asigandos', color='black')
+lineAsigned = Line2D([0], [0], label='Recursos Asignados', color='black')
 lineUsed = Line2D([0], [0], label='Recursos Usados', color='black', linestyle = 'dashed')
 
 plt.legend(handles=[lineAsigned, lineUsed, redPoint, bluePoint, greenPoint, orangePoint])
